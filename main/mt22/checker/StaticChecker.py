@@ -79,17 +79,16 @@ class GetEnv(Visitor):
 # _________________________________________________________
 # infer typ for id
 # _________________________________________________________
-def infer(name, typ, o):
-    for env in o:
-        for symbol in env:
-            if symbol.name == name:
-                symbol.returnType = typ
-                return typ
+def infer(id, typ, symbol_list):
+    for sym in symbol_list:
+        if sym.name == id.name:
+            sym.returnType = typ
+            return typ 
 # _________________________________________________________
 # infer typ for param_name in func_name
 # _________________________________________________________
-def inferParam(func_name, param_name , typ, o):
-    for func in o:
+def inferParam(func_name, param_name , typ, global_env):
+    for func in global_env:
         if func.name == func_name:
             for param in func.param:
                 if param.name == param_name:
@@ -125,12 +124,12 @@ class StaticChecker(Visitor):
         
         # first check, get all function and variable of global scope
         globalEnv = GetEnv().visitProgram(ast, [])
-            
+        
         env[0] += globalEnv
         # second check, check all declare
         
         for decl in ast.decls:
-            self.visit(decl, (env, True))
+            self.visit(decl, (True,[],env))
         
         # raise NoEntryPoint() in the end of 2nd check
         for func in env[0]:
@@ -139,30 +138,26 @@ class StaticChecker(Visitor):
         raise NoEntryPoint()
     # _____________________________________________________________
     # name: str, typ: Type, init: Expr or None = None
-    # param[0] = [Symbol(ast.name, ast.typ, ast.init)] in current scope
-    # param[1] = flag global
+    # param (isGlobal: Bool,[Symbol()] in current scope ,[Symbol()] in global scope)
+    # param[0] = True if in global scope
     # _____________________________________________________________
     def visitVarDecl(self, ast, param):
-        env = param[0]
-        flag_global = param[1]
-        if flag_global == False: # if local scope thi added vao env[0]
-            for Symbol in env[0]:
-                if Symbol.name == ast.name:
-                    raise Redeclared(Variable(), ast.name)
+        currentScope = param[1]
+        globalScope = param[2]
+        if ast.name in currentScope:
+            raise Redeclared(Variable(), ast.name)
         
-            if ast.init is None:
-                return Symbol(ast.name, ast.typ)
+        if ast.init is None:
+            return Symbol(ast.name, ast.typ)
         
-        
-        # kieu tu init
         elif ast.init is not None:
             # if ast.typ is ArrayType:
-            exprType = self.visit(ast.init, env)
+            exprType = self.visit(ast.init, param)
             
             if ast.typ is AutoType():
-                infer(ast, exprType, env)
+                infer(ast, exprType, currentScope + globalScope)
             elif exprType is AutoType():
-                infer(ast.init, ast.typ, env)
+                infer(ast.init, ast.typ, currentScope + globalScope)
             elif ast.typ is IntegerType() and exprType is FloatType():
                 raise TypeMismatchInStatement(ast)
             elif ast.typ is FloatType() and exprType is IntegerType():
@@ -170,58 +165,56 @@ class StaticChecker(Visitor):
             elif type(ast.typ) is not type(exprType):
                 raise TypeMismatchInStatement(ast)
             else:
-                env[0].append(Symbol(ast.name, ast.typ))
+                return Symbol(ast.name, ast.typ)
             
             
         
     # _____________________________________________________________
     # name: str, return_type: Type, params: List[ParamDecl], inherit: str or None, body: BlockStmt
-    # param[0] = [Symbol(ast.name, ast.typ, ast.init)] in global scope
+    # param (isGlobal: Bool,[Symbol()] in current scope ,[Symbol()] in global scope)
     # _____________________________________________________________
     def visitFuncDecl(self, ast, param):        
+        globalScope = param[2][0] # dung roi dung sua lai
         funcSymbol = Symbol(ast.name, ast.return_type, True, ast.params, ast.inherit)
         # them cac ten cua param vao local_scope
         listParam = ast.params 
+        localEnv = []
         parent_function = None
-        
-        newEnv = [[]] + param[0]
         for i in listParam:
-            self.visit(i, newEnv)
-        
+            localEnv += [self.visit(i, localEnv)]
+            
         
         # check if the function inherits from another function
         if ast.inherit is not None:
             # find the parent function in the global scope
-            for symbol in newEnv[1]: # search in global scope
+            for symbol in globalScope:
                 if symbol.name == ast.inherit:
                     # check if the parent function is a function
                     if symbol.isFunction == False:
-                        raise TypeMismatchInExpression(ast) # not tested
+                        raise TypeMismatchInExpression(ast)
                     parent_function = symbol
             # parent function is not found
             if parent_function is None:
                 raise Undeclared(Function(), ast.inherit)
         
         # visit block statement
-        # param (newEnv,
-        # is_in_loop: Bool, is_function_body: Bool, 
+        # param (is_in_loop: Bool, [Symbol()] in current scope,
+        # [Symbol()] in global, is_function_body: Bool, 
         # Symbol() of current function,
         # Symbol() of parent function)
-        self.visit(ast.body, (newEnv, False, True,funcSymbol ,parent_function))
-        
-        
+        self.visit(ast.body, (False, localEnv, globalScope, True,funcSymbol ,parent_function))
         
         
     # _________________________________________________________
     # name: str, typ: Type, inherit: str or None
-    # param: param[0] = [Symbol(ast.name, ast.typ, ast.init)] current scope
+    # param: [ParamDecl()]
     # _________________________________________________________
     def visitParamDecl(self, ast, param):
-        for symbol in param:
-            if symbol.name == ast.name:
+        for paramDecl in param:
+            if paramDecl.name == ast.name:
                 raise Redeclared(Parameter(), ast.name)
     
-        param[0].append(Symbol(ast.name, ast.typ))
+        return Symbol(ast.name, ast.typ)
         
     # _________________________________________________________
     # lhs: LHS, rhs: Expr
@@ -248,17 +241,19 @@ class StaticChecker(Visitor):
     
     # _________________________________________________________
     # BlockStmt body: List[Stmt or VarDecl]
-    #param (newEnv,
-    # is_in_loop: Bool, is_function_body: Bool, 
+    # param (is_in_loop: Bool, [Symbol()] in current scope,
+    # [Symbol()] in global, is_function_body: Bool, 
     # Symbol() of current function,
     # Symbol() of parent function)
     # _________________________________________________________
     def visitBlockStmt(self, ast, param):
-        env = param[0]
-        is_in_loop = param[1]
-        is_func_body = param[2]
-        current_func = param[3]
-        parent_func = param[4]
+        is_in_loop = param[0]
+        env = param[1]
+        globalEnv = param[2]
+        is_func_body = param[3]
+        current_func = param[4]
+        parent_func = param[5]
+        currentEnv = []
         # check if the first statement in the function body is a call to the parent function (super(), or preventDefault())
         if is_func_body == True: # is_function_body
             if parent_func is not None: # parent function exists
@@ -286,7 +281,8 @@ class StaticChecker(Visitor):
                                 # convert the integer type param to float
                                 pass
                             elif typArgs != parent_params[i].returnType:
-        
+                                print(typArgs)
+                                print(parent_params[i].returnType)
                                 raise TypeMismatchInExpression(expr.args[i])
                             else: # expr.args[i] is parent_params[i]
                                 pass
@@ -310,25 +306,23 @@ class StaticChecker(Visitor):
                             raise TypeMismatchInExpression()
             
             else: # parent function does not exist, check if the first statement is preventDefault()
-                if len(ast.body) > 0 and not isinstance(ast.body[0], VarDecl):
-                    stmt = self.visit(ast.body[0], env)
-                    if type(stmt) is CallStmt() and stmt.name == "preventDefault":
+                if len(ast.body) > 0:
+                    expr = ast.body[0]
+                    if expr.name == "preventDefault" or expr.name == "super":
                         raise TypeMismatchInExpression(expr)
                 pass
                     
             
                 
+        
         for stmt in ast.body:
             if isinstance(stmt, VarDecl):
-                self.visit(stmt, (env, False))
+                currentEnv.append(self.visit(stmt, (False, currentEnv, env)))
             else: # stmt is Stmt
-                self.visit(stmt, (env, is_in_loop))
-        print("test:_______")
-        for o in env:
-            print("_______")
-            for symbol in o:
-                print(symbol.name, symbol.returnType)
+                self.visit(stmt, (is_in_loop, currentEnv))
         
+        
+        currentEnv.clear()
         
         return 
         
