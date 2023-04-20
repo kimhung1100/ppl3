@@ -1,20 +1,8 @@
 from Visitor import Visitor
 from abc import ABC
 
-# from AST import *
-from AST import ArrayType
-from AST import IntegerType
-from AST import FloatType
-from AST import BooleanType
-from AST import StringType
-from AST import AutoType
-from AST import VoidType
-from AST import FuncDecl
-from AST import WhileStmt
-from AST import DoWhileStmt
-from AST import ForStmt
-from AST import VarDecl
-from AST import Id
+from AST import *
+
 
 from StaticError import *
 
@@ -178,12 +166,12 @@ class StaticChecker(Visitor):
         funcSymbol = Symbol(ast.name, ast.return_type, True, ast.params, ast.inherit)
         # them cac ten cua param vao local_scope
         listParam = ast.params 
-        localEnv = []
         parent_function = None
+        localEnv = []
         for i in listParam:
             localEnv += [self.visit(i, localEnv)]
-            
-        
+        env = [[]] + [globalScope]
+        env[0] = localEnv            
         # check if the function inherits from another function
         if ast.inherit is not None:
             # find the parent function in the global scope
@@ -196,13 +184,11 @@ class StaticChecker(Visitor):
             # parent function is not found
             if parent_function is None:
                 raise Undeclared(Function(), ast.inherit)
-        
         # visit block statement
-        # param (is_in_loop: Bool, [Symbol()] in current scope,
-        # [Symbol()] in global, is_function_body: Bool, 
+        # param (is_in_loop: Bool, env,  is_function_body: Bool, 
         # Symbol() of current function,
         # Symbol() of parent function)
-        self.visit(ast.body, (False, localEnv, globalScope, True,funcSymbol ,parent_function))
+        self.visit(ast.body, (False, env, True,funcSymbol ,parent_function))
         
         
     # _________________________________________________________
@@ -221,50 +207,50 @@ class StaticChecker(Visitor):
     # param (is_in_loop: Bool, [Symbol()] in current scope)
     # _________________________________________________________
     def visitAssignStmt(self, ast, param):
-        localScope = param[1]
-        leftType = self.visit(ast.lhs, localScope)
-        rightType = self.visit(ast.rhs, localScope)
-        
-        if leftType is AutoType():
-            infer(ast.lhs, rightType, localScope)
+        env = param[1]
+        leftType = self.visit(ast.lhs, env)
+        rightType = self.visit(ast.rhs, env)
+        if type(leftType) == AutoType:
+            infer(ast.lhs, rightType, env)
             return 
         elif rightType is AutoType():
-            infer(ast.rhs, leftType, localScope)
+            infer(ast.rhs, leftType, env)
             return 
         elif leftType is IntegerType() and rightType is FloatType():
             raise TypeMismatchInStatement(ast)
         elif leftType is FloatType() and rightType is IntegerType():
             pass
-        elif leftType is not rightType:
+        elif leftType != rightType:
             raise TypeMismatchInStatement(ast)
         
     
     # _________________________________________________________
     # BlockStmt body: List[Stmt or VarDecl]
-    # param (is_in_loop: Bool, [Symbol()] in current scope,
-    # [Symbol()] in global, is_function_body: Bool, 
+    # param (is_in_loop: Bool, env, is_function_body: Bool, 
     # Symbol() of current function,
     # Symbol() of parent function)
     # _________________________________________________________
     def visitBlockStmt(self, ast, param):
         is_in_loop = param[0]
         env = param[1]
-        globalEnv = param[2]
-        is_func_body = param[3]
-        current_func = param[4]
-        parent_func = param[5]
+        is_func_body = param[2]
+        current_func = param[3]
+        parent_func = param[4]
         currentEnv = []
         # check if the first statement in the function body is a call to the parent function (super(), or preventDefault())
         if is_func_body == True: # is_function_body
             if parent_func is not None: # parent function exists
                 parent_params = parent_func.param
-                if len(ast.body) > 0:
+                if len(ast.body) > 0 and type(ast.body[0]) is CallStmt:
                     # name: str, args: List[Expr]
                     # expr la CallStmt 
                     expr = ast.body[0]
                     if expr.name == "super":
-                        if len(expr.args) != len(parent_params):
-                            raise TypeMismatchInExpression(ast)
+                        if len(expr.args) > len(parent_params):
+                            raise TypeMismatchInExpression(expr.args[len(parent_params)]) # raise args du thua dau tien
+                        elif len(expr.args) < len(parent_params):
+                            raise TypeMismatchInExpression()
+                        
                         
                             
                         # check type of each param of super function and the parent function
@@ -281,9 +267,7 @@ class StaticChecker(Visitor):
                                 # convert the integer type param to float
                                 pass
                             elif typArgs != parent_params[i].returnType:
-                                print(typArgs)
-                                print(parent_params[i].returnType)
-                                raise TypeMismatchInExpression(expr.args[i])
+                                raise TypeMismatchInExpression(expr.args[i]) # args dau tien khong khop kieu
                             else: # expr.args[i] is parent_params[i]
                                 pass
                         # check if the name of params turn out 2 times
@@ -292,11 +276,14 @@ class StaticChecker(Visitor):
                         
                         # check if the name of params inherit in father function is the same as the name of params in function
                         # if not, add the param to the current environment
+                        print("add param to env")
                         for param in parent_params:
-                            if param.name in currentEnv and param.inherit == True:
+                            if param.name in env[0] and param.inherit == True:
                                 raise Redeclared(Parameter(), param.name)
-                            else:
-                                currentEnv += [param]
+                            elif param.inherit == True:
+                                env[0] += [Symbol(param.name, param.returnType)]
+                            # else: # param.inherit == False
+                        
                         
                     elif expr.name == "preventDefault":
                         # khong goi super()
@@ -304,25 +291,28 @@ class StaticChecker(Visitor):
                     else: # goi ham super() khong tham so
                         if len(parent_params) != 0:
                             raise TypeMismatchInExpression()
+                        
             
             else: # parent function does not exist, check if the first statement is preventDefault()
                 if len(ast.body) > 0:
-                    expr = ast.body[0]
-                    if expr.name == "preventDefault" or expr.name == "super":
+                    stmt = ast.body[0]
+                    
+                    if type(stmt) is CallStmt and (expr.name == "preventDefault" or expr.name == "super"):
                         raise TypeMismatchInExpression(expr)
                 pass
                     
-            
-                
         
+        
+                
         for stmt in ast.body:
             if isinstance(stmt, VarDecl):
-                currentEnv.append(self.visit(stmt, (False, currentEnv, env)))
+                env[0].append(self.visit(stmt, (False, env[0], env[1:])))
             else: # stmt is Stmt
-                self.visit(stmt, (is_in_loop, currentEnv))
+                self.visit(stmt, (is_in_loop, env))
         
         
-        currentEnv.clear()
+       
+            
         
         return 
         
@@ -346,10 +336,12 @@ class StaticChecker(Visitor):
         
     # _________________________________________________________
     # name: str, args: List[Expr]
-    # param (is_in_loop: Bool, [Symbol()] in current scope)
+    # param (is_in_loop: Bool, env 
     # _________________________________________________________
     def visitCallStmt(self, ast, param): 
-        for symbol in param[1]:
+        if ast.name == "super" or ast.name == "preventDefault":
+            return
+        for symbol in param[-1]: # param[-1] is the list of Symbol() in the global environment
             if ast.name == symbol.name:
                 if len(ast.args) != len(symbol.param):
                     raise TypeMismatchInStatement(ast)
@@ -364,8 +356,7 @@ class StaticChecker(Visitor):
                     elif type(ast.args[i]) != type(symbol.param[i].typ):
                         raise TypeMismatchInStatement(ast)
                 return
-        if ast.name == "super" or ast.name == "preventDefault":
-            return
+        
         raise Undeclared(Function(), ast.name)
     # _________________________________________________________
     # op: str, left: Expr, right: Expr
@@ -379,7 +370,6 @@ class StaticChecker(Visitor):
         
         leftType = self.visit(ast.left, param)
         rightType = self.visit(ast.right, param)
-        
         if op in ['+', '-', '*', '/']: # operand type is int/float
             if intersection([type(leftType), type(rightType)], [BooleanType, StringType, VoidType, ArrayType]):
                 raise TypeMismatchInExpression(ast)
@@ -391,7 +381,7 @@ class StaticChecker(Visitor):
             elif type(rightType) is AutoType():
                 infer(ast.right, leftType, param)
                 return leftType
-            elif type(leftType) is IntegerType() and type(rightType) is IntegerType():
+            elif type(leftType) == IntegerType and type(rightType) == IntegerType:
                 return IntegerType()
             else:
                 return FloatType()
@@ -409,9 +399,10 @@ class StaticChecker(Visitor):
     def visitFuncCall(self, ast, param): pass
     
     def visitId(self, ast, param):
-        for symbol in param:
-            if ast.name == symbol.name:
-                return symbol.returnType
+        for env in param:
+            for sym in env:
+                if ast.name == sym.name:
+                    return sym.returnType
         raise Undeclared(Identifier(), ast.name)
 
     

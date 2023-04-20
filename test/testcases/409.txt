@@ -1,0 +1,8 @@
+
+        bar: function integer (inherit a: integer) {
+            a = a;
+        }
+        foo: function integer (a: integer) inherit bar {
+            preventDefault();
+        }
+        

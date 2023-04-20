@@ -77,18 +77,18 @@ class CheckerSuite(unittest.TestCase):
     #     expect = "Undeclared Identifier: c"
     #     self.assertTrue(TestChecker.test(input, expect, 406))
     
-    def test_TypeMismatchInSTMT_for1(self):
-        """test_TypeMismatchInBinExp_REMAINDER""" 
-        # OPERAND TYPE: INT
-        input = """
-            a, b: integer;
-            foo: function void () {
-                x, y, z: integer = 1, 2, 3;
-                a, b: float;
-            }
-            """
-        expect = "Redeclared Variable: a"
-        self.assertTrue(TestChecker.test(input, expect, 407))
+    # def test_TypeMismatchInSTMT_for1(self):
+    #     """test_TypeMismatchInBinExp_REMAINDER""" 
+    #     # OPERAND TYPE: INT
+    #     input = """
+    #         a, b: integer;
+    #         foo: function void () {
+    #             x, y, z: integer = 1, 2, 3;
+    #             a, b: float;
+    #         }
+    #         """
+    #     expect = "No entry point"
+    #     self.assertTrue(TestChecker.test(input, expect, 407))
     
     # def test_TypeMismatchInSTMT_for1(self):
     #     """test_TypeMismatchInBinExp_REMAINDER""" 
@@ -98,4 +98,20 @@ class CheckerSuite(unittest.TestCase):
     #         """
     #     expect = "No entry point"
     #     self.assertTrue(TestChecker.test(input, expect, 408))
+    
+     
+    def test_TypeMismatchInSTMT_for1(self):
+        """test_TypeMismatchInBinExp_REMAINDER""" 
+        # OPERAND TYPE: INT
+        input = """
+        bar: function integer (inherit a: integer) {
+            a = a;
+        }
+        foo: function integer (a: integer) inherit bar {
+            preventDefault();
+        }
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 409))
         
+    
