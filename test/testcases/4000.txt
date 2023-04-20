@@ -1,0 +1,7 @@
+
+            foo: function integer (inherit a: integer) {
+            }
+            bar: function integer (c: integer) inherit foo {
+                super(2);
+            }
+            

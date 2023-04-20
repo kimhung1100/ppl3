@@ -1,0 +1,6 @@
+
+            foo: function void () {
+                x, y, z: integer = 1, 2, 3;
+                a, b: float;
+            }
+            

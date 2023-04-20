@@ -1,0 +1,9 @@
+
+        foo: function integer (inherit a: integer, b: integer){
+            a = a + b;
+        }
+        bar: function integer (c: integer) inherit foo {
+            c = a + b;
+            }
+        main: function void () {
+        }
