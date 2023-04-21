@@ -1,0 +1,11 @@
+
+            goo: function float(a: float, b: boolean){}
+            foo: function float(){
+                i : integer;
+                for (i = 2, i<10, i+1){
+                    continue;
+                }
+                continue;
+            }
+            main: function void(){}
+        

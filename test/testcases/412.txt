@@ -1,0 +1,9 @@
+
+            goo: function float(a: float, b: boolean){}
+            foo: function float(){
+                i : integer;
+                while (i<2) {break;}
+                continue;
+            }
+            main: function void(){}
+        
