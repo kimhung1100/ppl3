@@ -39,18 +39,19 @@ class CheckerSuite(unittest.TestCase):
 #         self.assertTrue(TestChecker.test(input, expect, 403))
         
     
-    # def test_inheritFunc(self):
-    #     input = """
-    #     foo: function integer (inherit a: integer, b: integer){
-    #         a = a + b;
-    #     }
-    #     bar: function integer (c: integer) inherit foo {
-    #         c = a + b;
-    #         }
-    #     main: function void () {
-    #     }"""
-    #     expect = "Undeclared Identifier: b"
-    #     self.assertTrue(TestChecker.test(input, expect, 404))
+    def test_inheritFunc(self):
+        input = """
+        foo: function integer (inherit a: integer, b: integer){
+            a = a + b;
+        }
+        bar: function integer (c: integer) inherit foo {
+            super(2, 3);
+            c = a + b;
+            }
+        main: function void () {
+        }"""
+        expect = "Undeclared Identifier: b"
+        self.assertTrue(TestChecker.test(input, expect, 404))
     
     # def test_TypeMismatchInSTMT_for1(self):
     #     """test_TypeMismatchInBinExp_REMAINDER""" 
@@ -100,18 +101,18 @@ class CheckerSuite(unittest.TestCase):
     #     self.assertTrue(TestChecker.test(input, expect, 408))
     
      
-    def test_TypeMismatchInSTMT_for1(self):
-        """test_TypeMismatchInBinExp_REMAINDER""" 
-        # OPERAND TYPE: INT
-        input = """
-        bar: function integer (inherit a: integer) {
-            a = a;
-        }
-        foo: function integer (a: integer) inherit bar {
-            preventDefault();
-        }
-        """
-        expect = "No entry point"
-        self.assertTrue(TestChecker.test(input, expect, 409))
+    # def test_TypeMismatchInSTMT_for1(self):
+    #     """test_TypeMismatchInBinExp_REMAINDER""" 
+    #     # OPERAND TYPE: INT
+    #     input = """
+    #     bar: function integer (inherit a: integer) {
+    #         a = a;
+    #     }
+    #     foo: function integer (a: integer) inherit bar {
+    #         preventDefault();
+    #     }
+    #     """
+    #     expect = "No entry point"
+    #     self.assertTrue(TestChecker.test(input, expect, 409))
         
     

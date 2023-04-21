@@ -3,7 +3,7 @@
             a = a + b;
         }
         bar: function integer (c: integer) inherit foo {
-            super(2, 1);
+            super(2, 3);
             c = a + b;
             }
         main: function void () {

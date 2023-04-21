@@ -136,6 +136,8 @@ class StaticChecker(Visitor):
             raise Redeclared(Variable(), ast.name)
         
         if ast.init is None:
+            if ast.typ is AutoType(): # declare auto type var but no init
+                raise Invalid(Variable(),ast.name)
             return Symbol(ast.name, ast.typ)
         
         elif ast.init is not None:
@@ -150,7 +152,7 @@ class StaticChecker(Visitor):
                 raise TypeMismatchInStatement(ast)
             elif ast.typ is FloatType() and exprType is IntegerType():
                 pass
-            elif type(ast.typ) is not type(exprType):
+            elif type(ast.typ) != type(exprType):
                 raise TypeMismatchInStatement(ast)
             else:
                 return Symbol(ast.name, ast.typ)
@@ -204,12 +206,18 @@ class StaticChecker(Visitor):
         
     # _________________________________________________________
     # lhs: LHS, rhs: Expr
-    # param (is_in_loop: Bool, [Symbol()] in current scope)
+    # param (is_in_loop: Bool, env, False, None, None, is_init_for: Bool)
     # _________________________________________________________
     def visitAssignStmt(self, ast, param):
         env = param[1]
-        leftType = self.visit(ast.lhs, env)
+        is_init_for = param[5]
         rightType = self.visit(ast.rhs, env)
+        leftType = self.visit(ast.lhs, env)
+        
+        if is_init_for: 
+            if leftType != integerType():
+                raise TypeMismatchInStatement(ast)
+            
         if type(leftType) == AutoType:
             infer(ast.lhs, rightType, env)
             return 
@@ -276,10 +284,9 @@ class StaticChecker(Visitor):
                         
                         # check if the name of params inherit in father function is the same as the name of params in function
                         # if not, add the param to the current environment
-                        print("add param to env")
                         for param in parent_params:
                             if param.name in env[0] and param.inherit == True:
-                                raise Redeclared(Parameter(), param.name)
+                                raise Invalid(Parameter(), param.name)
                             elif param.inherit == True:
                                 env[0] += [Symbol(param.name, param.returnType)]
                             # else: # param.inherit == False
@@ -303,22 +310,52 @@ class StaticChecker(Visitor):
                     
         
         
-                
+       
+            
         for stmt in ast.body:
             if isinstance(stmt, VarDecl):
                 env[0].append(self.visit(stmt, (False, env[0], env[1:])))
             else: # stmt is Stmt
-                self.visit(stmt, (is_in_loop, env))
+                self.visit(stmt, (is_in_loop, env, False, None, None))
         
         
-       
-            
+       # end of block, remove the current environment
+        env = env[1:]
         
         return 
+    # _________________________________________________________    
+    # cond: Expr, tstmt: Stmt, fstmt: Stmt or None = None
+    # param (is_in_loop: Bool, env, False, None, None)
+    # _________________________________________________________
+    def visitIfStmt(self, ast, param):
+        is_in_loop = param[0]
+        env = param[1]
+        cond = self.visit(ast.cond, env)
+        if cond is not BoolType():
+            raise TypeMismatchInStatement(ast)
+        tstmt = self.visit(ast.thenStmt, (is_in_loop, env, False, None, None))
+        fstmt = None
+        if ast.fstmt is not None:
+            fstmt = self.visit(ast.fstmt, (is_in_loop, env, False, None, None))
+            
+    # _________________________________________________________    
+    # init: AssignStmt, cond: Expr, upd: Expr, stmt: Stmt
+    # param (is_in_loop: Bool, env)
+    # _________________________________________________________  
+    def visitForStmt(self, ast, param):
+        is_in_loop = param[0]
+        env = param[1]
+        assignStmt = self.visit(ast.init, (is_in_loop, env, False, None, None, True)) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
+        if ast.init.lhs is not Id() or ast.init.:
+            raise TypeMismatchInStatement(ast)
         
+        cond = self.visit(ast.cond, env)
+        if cond is not BoolType():
+            raise TypeMismatchInStatement(ast)
+        upd = self.visit(ast.upd, env)
+        if upd is not IntType():
+            raise TypeMismatchInStatement(ast)
         
-    def visitIfStmt(self, ast, param): pass
-    def visitForStmt(self, ast, param): pass
     def visitWhileStmt(self, ast, param): pass
     def visitDoWhileStmt(self, ast, param): pass
     def visitBreakStmt(self, ast, param): pass
@@ -335,29 +372,67 @@ class StaticChecker(Visitor):
             return self.visit(ast.expr, param[1])
         
     # _________________________________________________________
+    # CallStmt(Stmt)
     # name: str, args: List[Expr]
     # param (is_in_loop: Bool, env 
     # _________________________________________________________
-    def visitCallStmt(self, ast, param): 
+    def visitCallStmt(self, ast, param):
+        env = param[1]
         if ast.name == "super" or ast.name == "preventDefault":
             return
+        for localEnv in env[:-1]:
+            for symbol in localEnv: # find id in the current environment
+                if ast.name == symbol.name and symbol.isFuntion == False:
+                    raise TypeMismatchInStatement(ast) # id is declared in current scope but is not a function
+            
         for symbol in param[-1]: # param[-1] is the list of Symbol() in the global environment
             if ast.name == symbol.name:
                 if len(ast.args) != len(symbol.param):
                     raise TypeMismatchInStatement(ast)
                 for i in range(len(ast.args)):
-                    if type(ast.args[i]) is AutoType():
-                        infer(ast.args[i], symbol.param[i].typ, param[1])
-                    elif type(symbol.param[i].typ) is AutoType():
-                        infer(symbol.param[i].typ, ast.args[i], param[1])
+                    if type(ast.args[i]) == AutoType():
+                        infer(ast.args[i], symbol.param[i].typ, env)
+                    elif type(symbol.param[i].typ) == AutoType():
+                        infer(symbol.param[i].typ, ast.args[i], env)
                     elif type(ast.args[i]) == IntegerType() and type(symbol.param[i].typ) == FloatType():
                         # convert the param to float
                         pass
                     elif type(ast.args[i]) != type(symbol.param[i].typ):
                         raise TypeMismatchInStatement(ast)
-                return
+                return # stmt chi check loi, khong tra ve kieu
         
         raise Undeclared(Function(), ast.name)
+    
+    # _________________________________________________________
+    # FuncCall(Expr)
+    # name: str, args: List[Expr]
+    # param env 
+    # _________________________________________________________
+    def visitFuncCall(self, ast, param): 
+        env = param
+        for localEnv in env[:-1]:
+            for symbol in localEnv: # find id in the current environment
+                if ast.name == symbol.name and symbol.isFuntion == False:
+                    raise TypeMismatchInExpression(ast) # id is declared in current scope but is not a function
+                
+        for symbol in param[-1]: # param[-1] is the list of Symbol() in the global environment
+            if ast.name == symbol.name:
+                if len(ast.args) != len(symbol.param):
+                    raise TypeMismatchInExpression(ast)
+                for i in range(len(ast.args)):
+                    if type(ast.args[i]) == AutoType():
+                        infer(ast.args[i], symbol.param[i].typ, env)
+                    elif type(symbol.param[i].typ) == AutoType():
+                        infer(symbol.param[i].typ, ast.args[i], env)
+                    elif type(ast.args[i]) == IntegerType() and type(symbol.param[i].typ) == FloatType():
+                        # convert the param to float
+                        pass
+                    elif type(ast.args[i]) != type(symbol.param[i].typ):
+                        raise TypeMismatchInExpression(ast)
+                return symbol.returnType # expr tra ve kieu
+        
+        raise Undeclared(Function(), ast.name)
+    
     # _________________________________________________________
     # op: str, left: Expr, right: Expr
     # op is Multi: *, /, %
@@ -365,38 +440,118 @@ class StaticChecker(Visitor):
     #        Logical: &&, ||
     #        Relational: <, >, <=, >=, ==, !=
     #        String: ::
+    # param is env
+    # _________________________________________________________
     def visitBinExpr(self, ast, param): 
         op = ast.op
         
         leftType = self.visit(ast.left, param)
         rightType = self.visit(ast.right, param)
         if op in ['+', '-', '*', '/']: # operand type is int/float
-            if intersection([type(leftType), type(rightType)], [BooleanType, StringType, VoidType, ArrayType]):
+            if intersection([leftType, rightType], [BooleanType(), StringType(), VoidType(), ArrayType()]):
                 raise TypeMismatchInExpression(ast)
-            elif type(leftType) is AutoType() and type(rightType) is AutoType():
-                return AutoType()
-            elif type(leftType) is AutoType():
+            elif leftType == AutoType() and rightType == AutoType():
+                return FloatType() # testcase khong co 2 cai auto ko suy dien dc, tra ve float tang ti le dung
+            elif leftType == AutoType():
                 infer(ast.left, rightType, param)
                 return rightType
-            elif type(rightType) is AutoType():
+            elif rightType == AutoType():
                 infer(ast.right, leftType, param)
                 return leftType
-            elif type(leftType) == IntegerType and type(rightType) == IntegerType:
+            elif leftType == IntegerType() and rightType == IntegerType():
                 return IntegerType()
             else:
                 return FloatType()
             
         elif op in ['%']: # operand type is int
-            pass
+            if intersection([leftType, rightType], [BooleanType(), StringType(), VoidType(), ArrayType(), FloatType()]):
+                raise TypeMismatchInExpression(ast)
+            elif leftType == AutoType() and rightType == AutoType():
+                infer(ast.left, IntegerType(), param)
+                infer(ast.right, IntegerType(), param)
+                return IntegerType()
+            elif leftType == AutoType():
+                infer(ast.left, rightType, param)
+                return IntegerType()
+            elif rightType == AutoType():
+                infer(ast.right, leftType, param)
+                return IntegerType()
+            elif leftType == IntegerType() and rightType == IntegerType():
+                return IntegerType()
         elif op in ['&&', '||']: # operand type is bool
-            pass
+            if intersection([leftType, rightType], [IntegerType(), StringType(), VoidType(), ArrayType(), FloatType()]):
+                raise TypeMismatchInExpression(ast)
+            if leftType == AutoType() and rightType == AutoType():
+                infer(ast.left, BooleanType(), param)
+                infer(ast.right, BooleanType(), param)
+                return BooleanType()
+            elif leftType == AutoType():
+                infer(ast.left, rightType, param)
+                return BooleanType()
+            elif rightType == AutoType():
+                infer(ast.right, leftType, param)
+                return BooleanType()
+            else :
+                return BooleanType()
         elif op in ['<', '>', '<=', '>=', '==', '!=']: # operand type is int/float
-            pass
+            if intersection([leftType, rightType], [BooleanType(), StringType(), VoidType(), ArrayType()]):
+                raise TypeMismatchInExpression(ast)
+            elif leftType == AutoType() and rightType == AutoType():
+                return FloatType() # ti le dung cao hon
+            elif leftType == AutoType():
+                infer(ast.left, rightType, param)
+                return rightType
+            elif rightType == AutoType():
+                infer(ast.right, leftType, param)
+                return leftType
+            elif leftType == IntegerType() and rightType == IntegerType():
+                return IntegerType()
+            else:
+                return FloatType()
+            
+            
         elif op in ['::']: # operand type is string
-            pass
-    def visitUnExpr(self, ast, param): pass
+            if intersection([leftType, rightType], [BooleanType(), IntegerType(), VoidType(), ArrayType(), FloatType()]):
+                raise TypeMismatchInExpression(ast)
+            elif leftType == AutoType() and rightType == AutoType():
+                infer(ast.left, StringType(), param)
+                infer(ast.right, StringType(), param)
+                return StringType()
+            elif leftType == AutoType():
+                infer(ast.left, rightType, param)
+                return StringType()
+            elif rightType == AutoType():
+                infer(ast.right, leftType, param)
+                return StringType()
+            else :
+                return StringType()
+    # _________________________________________________________
+    # op: str, body: Expr
+    # op is Unary: !, -
+    # param is env
+    # _________________________________________________________
+    def visitUnExpr(self, ast, param): 
+        op = ast.op
+        bodyType = self.visit(ast.body, param)
+        if op in ['!']: # operand type is bool
+            if bodyType == AutoType():
+                infer(ast.body, BooleanType(), param)
+                return BooleanType()
+            elif bodyType == BooleanType():
+                return BooleanType()
+            else:
+                raise TypeMismatchInExpression(ast)
+        elif op in ['-']: # operand type is int/float
+            if bodyType == AutoType():
+                infer(ast.body, IntegerType(), param)
+                return IntegerType()
+            elif bodyType == IntegerType():
+                return IntegerType()
+            elif bodyType == FloatType():
+                return FloatType()
+            else:
+                raise TypeMismatchInExpression(ast)
     
-    def visitFuncCall(self, ast, param): pass
     
     def visitId(self, ast, param):
         for env in param:
