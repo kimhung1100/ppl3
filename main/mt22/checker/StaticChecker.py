@@ -28,9 +28,13 @@ class Symbol:
     
 class GetEnv(Visitor):
         # decls: List[Decl]
+    def __init__(self, ast):
+        self.ast = ast
+    def check(self):
+        return self.visitProgram(self.ast, [])
     def visitProgram(self, ast, param):
         
-        o = []
+        o = param
         for decl in ast.decls:
             o.append(self.visit(decl, o))
             
@@ -114,7 +118,7 @@ class StaticChecker(Visitor):
         ]
         
         # first check, get all function and variable of global scope
-        globalEnv = GetEnv().visitProgram(ast, [])
+        globalEnv = GetEnv(ast).visitProgram(ast, [])
         
         # env[0] += globalEnv
         # second check, check all declare
@@ -149,7 +153,8 @@ class StaticChecker(Visitor):
         if param[0] == True: # in global scope, env = [globalEnv]
             env[0].append(Symbol(ast.name, ast.typ))
         if ast.init is None:
-            if ast.typ is AutoType(): # declare auto type var but no init
+            
+            if type(ast.typ) is AutoType: # declare auto type var but no init
                 raise Invalid(Variable(),ast.name)
             return Symbol(ast.name, ast.typ)
         
@@ -157,13 +162,14 @@ class StaticChecker(Visitor):
             # if ast.typ is ArrayType:
             exprType = self.visit(ast.init, env)
             
-            if ast.typ == AutoType:
+            if type(ast.typ) is AutoType:
                 infer(ast.name, exprType, env)
-            elif ast.typ == IntegerType and exprType == FloatType:
+            elif type(ast.typ) is IntegerType and type(exprType) is FloatType:
                 raise TypeMismatchInVarDecl(ast)
-            elif ast.typ == FloatType and exprType == IntegerType:
+            elif type(ast.typ) is FloatType and type(exprType) is IntegerType:
                 pass
-            elif ast.typ != exprType:
+            elif type(ast.typ) is not type(exprType):
+                print("-----test---->", ast.init, ast.typ)
                 raise TypeMismatchInVarDecl(ast)
             else:
                 return Symbol(ast.name, ast.typ)
@@ -700,20 +706,32 @@ class StaticChecker(Visitor):
     def visitArrayType(self, ast, param): return ArrayType(ast.dimensions, ast.typ) 
     
     # name: str, cell: List[Expr]
-    def visitArrayCell(self, ast, param): 
-        arr = self.visit(ast.name, param)
-        elements = []
-        for ele in ast.cell:
-            elements += [self.visit(ele, param)]
-        if type(arr) is ArrayType:
-            if len(arr.dimensions) != len(elements):
-                raise TypeMismatchInExpression(ast)
-            for i in range(len(elements)):
-                if type(elements[i]) != IntegerType():
-                    raise TypeMismatchInExpression(ast)
+    def visitArrayCell(self, ast, param):
+        # thu tu check tu ngoai vao trong, check id, check length, check type exp
+        env = param
+        # find array in env
+        arr = None
+        for i in env:
+            for sym in i:
+                if ast.name == sym.name:
+                    arr = sym.returnType
+        if arr is None:
+            raise Undeclared(Identifier(), ast.name)
+        # check cell
+        if arr not in [IntegerType(), FloatType(), BooleanType(), StringType(), VoidType(), AutoType()]:
+            # check length
+            if len(ast.cell) > len(arr.dimensions):
+                raise TypeMismatchInExpression(ast.cell[len(arr.dimensions)]) # exp du thua dau tien
+            elif len(ast.cell) < len(arr.dimensions):
+                raise TypeMismatchInExpression() # voi dau vao rong, tuong tu giai thich super
+            # check type
+            for i in range(len(ast.cell)):
+                typCell = self.visit(ast.cell[i], param)
+                if typCell is not IntegerType():
+                    raise TypeMismatchInExpression(ast.cell[i])
             return arr.typ
-        else :
-            raise TypeMismatchInExpression(ast)
+        else: # id khong phai la array
+            raise TypeMismatchInExpression(ast.name)
         
     
     # explist: List[Expr]
