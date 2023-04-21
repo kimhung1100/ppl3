@@ -168,5 +168,140 @@ class CheckerSuite(unittest.TestCase):
 
         self.assertTrue(TestChecker.test(input, expect, 412))
         
+    def test_413(self):
+        """nested loop break"""
+        input = """
+            main: function void() {
+                i: integer;
+                for (i = 1, i<10, i+3){
+                    for (i = 1, i<10, i+3){
+                        break;
+                    }
+                    break;
+                }
+                return 3;
+            }
+        """
+        expect = "Type mismatch in statement: ReturnStmt(IntegerLit(3))"
+
+        self.assertTrue(TestChecker.test(input, expect, 413))
+        
+    def test_414(self):
+        """nested loop break"""
+        input = """
+            main: function void() {
+                i: integer;
+                for (i = 1, i<10, i+3){
+                    for (i = 1, i<10, i+3){
+                        break;
+                    }
+                    break;
+                }
+                break;
+                return 3;
+            }
+        """
+        expect = "Must in loop: BreakStmt()"
+
+        self.assertTrue(TestChecker.test(input, expect, 414))
+        
+    def test_415(self):
+        input = """
+        main: function integer (inherit x: auto){
+            y: float;
+        }
+        foo: function void(x:auto) inherit main{
+            preventDefault();
+            m: auto = main(1);
+            {
+                x: integer;
+                z: integer;
+            }
+            if (1 > 2) m = 2; 
+            else 
+            {
+                i: integer;
+                for (i = 0, i < 5, i + 1)
+                {
+                    x: float;
+                    return;
+                }
+            }
+        }
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 415))
+        
+    def test_416(self):
+        input = """
+        main: function integer (inherit x: auto) inherit main2{
+            preventDefault();
+            y: float;
+        }
+        d: array[4] of float = {1,2,3,4};
+        n: float = 1 + 2.1;
+        foo1: auto = 5;
+        foo: function void(x:auto) inherit main{
+            preventDefault();
+            m: auto = main(1);
+            {
+                x: integer;
+                z: integer;
+            }
+            if (1 > 2) m = 2; 
+            else 
+            {
+                i: integer;
+                for (i = 0, i < 5, i + 1)
+                {
+                    x: float;
+                    return;
+                }
+            }
+        }
+        """
+        expect = "Undeclared Function: main2"
+        self.assertTrue(TestChecker.test(input, expect, 416))
+        
+    # ----------------------------------------------------------------------
+    # test array 
+    # ----------------------------------------------------------------------
+    def test_417(self):
+        input = """
+        d: array[4] of float = {1,2,3,4};
+        n: float = 1 + 2.1;
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 417))
+    
+    def test_418(self):
+        input = """
+        d: array[4] of float = {1,2,3.2,4};
+        n: float = 1 + 2.1;
+        """
+        expect = "Illegal array literal: ArrayLit([IntegerLit(1), IntegerLit(2), FloatLit(3.2), IntegerLit(4)])"
+        self.assertTrue(TestChecker.test(input, expect, 418))
+        
+    def test_419(self):
+        input = """
+        d: array[5] of float = {1,2,3,4};
+        n: float = 1 + 2.1;
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(d, ArrayType([5], FloatType), ArrayLit([IntegerLit(1), IntegerLit(2), IntegerLit(3), IntegerLit(4)]))"
+        self.assertTrue(TestChecker.test(input, expect, 419))
+        
+    def test_420(self):
+        input = """
+        main: function void() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                writeFloat(i);
+                break;
+            }
+        }
+        a: array [1,2] of integer = {{1,2}};
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(a, ArrayType([1, 2], IntegerType), ArrayLit([ArrayLit([IntegerLit(1), IntegerLit(2)])]))"
+        self.assertTrue(TestChecker.test(input, expect, 420))
         
     

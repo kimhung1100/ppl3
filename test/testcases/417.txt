@@ -1,0 +1,4 @@
+
+        d: array[4] of float = {1,2,3,4};
+        n: float = 1 + 2.1;
+        

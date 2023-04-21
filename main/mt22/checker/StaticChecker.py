@@ -69,11 +69,12 @@ class GetEnv(Visitor):
 # _________________________________________________________
 # infer typ for id
 # _________________________________________________________
-def infer(id, typ, symbol_list):
-    for sym in symbol_list:
-        if sym.name == id.name:
-            sym.returnType = typ
-            return typ 
+def infer(id, typ, env):
+    for symbolList in env:
+        for sym in symbolList:
+            if sym.name == id.name:
+                sym.returnType = typ
+                return typ 
 # _________________________________________________________
 # infer typ for param_name in func_name
 # _________________________________________________________
@@ -122,8 +123,15 @@ class StaticChecker(Visitor):
             self.visit(decl, [True,env,globalEnv])
         
         # raise NoEntryPoint() in the end of 2nd check
+        # print("-----test---->")
+        # print(len(env))
+        # for i in env:
+        #     for j in i:
+        #         print(j.name)
+        #     print("-----")
+            
         for func in env[0]:
-            if func.name == "main" and func.returnType == VoidType() and func.isFunction == True:
+            if func.name == "main" and func.returnType == VoidType and func.isFunction == True:
                 return
         raise NoEntryPoint()
     # _____________________________________________________________
@@ -138,7 +146,7 @@ class StaticChecker(Visitor):
         for sym in env[0]:
             if sym.name == ast.name:
                 raise Redeclared(Variable(), ast.name)
-        if param[0] == True: # in global scope
+        if param[0] == True: # in global scope, env = [globalEnv]
             env[0].append(Symbol(ast.name, ast.typ))
         if ast.init is None:
             if ast.typ is AutoType(): # declare auto type var but no init
@@ -152,11 +160,11 @@ class StaticChecker(Visitor):
             if ast.typ == AutoType:
                 infer(ast.name, exprType, env)
             elif ast.typ == IntegerType and exprType == FloatType:
-                raise TypeMismatchInStatement(ast)
+                raise TypeMismatchInVarDecl(ast)
             elif ast.typ == FloatType and exprType == IntegerType:
                 pass
             elif ast.typ != exprType:
-                raise TypeMismatchInStatement(ast)
+                raise TypeMismatchInVarDecl(ast)
             else:
                 return Symbol(ast.name, ast.typ)
             
@@ -209,7 +217,8 @@ class StaticChecker(Visitor):
         # param (is_in_loop: Bool, env,  is_function_body: Bool, 
         # Symbol() of current function,
         # Symbol() of parent function)
-        self.visit(ast.body, [False, env, True, funcSymbol ,parent_function])
+        
+        self.visit(ast.body, [False, env, True, funcSymbol ,parent_function, False])
         # end of scope block statement, remove local scope
         env = env[1:]
         
@@ -240,7 +249,7 @@ class StaticChecker(Visitor):
             if type(leftType) != IntegerType:
                 raise TypeMismatchInStatement(ast)
             
-        if type(leftType) == AutoType:
+        if type(leftType) == AutoType:            
             infer(ast.lhs, rightType, env)
             return 
         elif rightType == AutoType:
@@ -266,7 +275,7 @@ class StaticChecker(Visitor):
         is_func_body = param[2]
         current_func = param[3]
         parent_func = param[4]
-        currentEnv = []
+        localEnv = []
         # check if the first statement in the function body is a call to the parent function (super(), or preventDefault())
         if is_func_body == True: # is_function_body
             if parent_func is not None: # parent function exists
@@ -281,8 +290,7 @@ class StaticChecker(Visitor):
                         elif len(expr.args) < len(parent_params):
                             raise TypeMismatchInExpression()
                         
-                        
-                            
+                    
                         # check type of each param of super function and the parent function
                         for i in range(len(expr.args)):
                             typArgs = self.visit(expr.args[i], env)
@@ -312,6 +320,8 @@ class StaticChecker(Visitor):
                             elif param.inherit == True:
                                 env[0] += [Symbol(param.name, param.returnType)]
                             # else: # param.inherit == False
+                            
+                        
                         
                         
                     elif expr.name == "preventDefault":
@@ -325,28 +335,25 @@ class StaticChecker(Visitor):
             else: # parent function does not exist, check if the first statement is preventDefault()
                 if len(ast.body) > 0:
                     stmt = ast.body[0]
-                    
                     if type(stmt) == CallStmt and (stmt.name == "preventDefault" or stmt.name == "super"):
-                        raise TypeMismatchInExpression(expr)
+                        raise TypeMismatchInExpression(ast.body[0])
                 pass
                     
+        elif is_func_body == False: # is_block_body
+            # create new scope
+            env = [[]] + env
+            env[0] = localEnv  
         
-        
-       
-            
         for stmt in ast.body:
             if isinstance(stmt, VarDecl):
-                env[0].append(self.visit(stmt, [is_in_loop, env, is_func_body, current_func, parent_func, False]))
+                env[0].append(self.visit(stmt, [is_in_loop, env, False, current_func, parent_func, False]))
             else: # stmt is Stmt
-                self.visit(stmt, [is_in_loop, env, is_func_body, current_func, parent_func, False])
-        
-        # test env
+                self.visit(stmt, [is_in_loop, env, False, current_func, parent_func, False])
         
         
-       # end of block, remove the current environment
-        
-        
-        
+        if is_func_body == False: # is_block_body
+            env = env[1:]
+       # end of block_body, remove the current environment
         return 
     # _________________________________________________________    
     # cond: Expr, tstmt: Stmt, fstmt: Stmt or None = None
@@ -360,10 +367,10 @@ class StaticChecker(Visitor):
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast) # tiep tuc truyen tham so cho visit stmt
-        tstmt = self.visit(ast.tstmt, [is_in_loop, env, param[2], param[3], param[4]]) 
+        tstmt = self.visit(ast.tstmt, [is_in_loop, env, False, param[3], param[4], False]) 
         fstmt = None
         if ast.fstmt is not None:
-            fstmt = self.visit(ast.fstmt, [is_in_loop, env, param[2], param[3], param[4]])
+            fstmt = self.visit(ast.fstmt, [is_in_loop, env, False, param[3], param[4], False])
             
     # _________________________________________________________    
     # init: AssignStmt, cond: Expr, upd: Expr, stmt: Stmt
@@ -373,6 +380,7 @@ class StaticChecker(Visitor):
         is_in_loop = param[0]
         env = param[1]
         is_in_loop = True
+        funcSym = param[3]
         assignStmt = self.visit(ast.init, [is_in_loop, env, False, None, None, True]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
         
         cond = self.visit(ast.cond, env)
@@ -383,7 +391,7 @@ class StaticChecker(Visitor):
             raise TypeMismatchInStatement(ast)
 
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, False, None, None])
+        self.visit(ast.stmt, [is_in_loop, env, False, funcSym, None, False])
         env = env[1:]
     
     # _________________________________________________________    
@@ -394,12 +402,13 @@ class StaticChecker(Visitor):
         is_in_loop = param[0]
         env = param[1]
         is_in_loop = True
+        funcSym = param[3]
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
         
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, False, None, None])
+        self.visit(ast.stmt, [is_in_loop, env, False, funcSym, None, False])
         env = env[1:]
         
     # _________________________________________________________    
@@ -453,17 +462,23 @@ class StaticChecker(Visitor):
         env = param[1]
         currentFunc = param[3]
         return_type = None
-        if ast.expr is None:
+        
+        if ast.expr is None: # dung == la error luon
             return_type = VoidType()
         else :
-            return_type = type(self.visit(ast.expr, env))
-        if currentFunc.returnType == AutoType:
+            return_type = self.visit(ast.expr, env)
+        
+        for sym in env[-1]:
+            if sym.name == currentFunc.name:
+                currentFunc = sym
+        if currentFunc.returnType is AutoType():
             for sym in env[-1]:
                 if sym.name == currentFunc.name:
                     sym.returnType = return_type
-        elif type(currentFunc.returnType) != return_type:
+        if type(currentFunc.returnType) is type(return_type):
+            return
+        else:
             raise TypeMismatchInStatement(ast)
-        
         
     # _________________________________________________________
     # CallStmt(Stmt)
@@ -507,7 +522,7 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitFuncCall(self, ast, param):
         env = param
-        for localEnv in env[:-1]:
+        for localEnv in env[:-1]: # find lan luot tu local ra global
             for symbol in localEnv: # find id in the current environment
                 if ast.name == symbol.name and symbol.isFuntion == False:
                     

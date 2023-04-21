@@ -1,0 +1,23 @@
+
+        main: function integer (inherit x: auto){
+            y: float;
+        }
+        foo: function void(x:auto) inherit main{
+            preventDefault();
+            m: auto = main(1);
+            {
+                x: integer;
+                z: integer;
+            }
+            if (1 > 2) m = 2; 
+            else 
+            {
+                i: integer;
+                for (i = 0, i < 5, i + 1)
+                {
+                    x: float;
+                    return;
+                }
+            }
+        }
+        
