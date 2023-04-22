@@ -3,8 +3,13 @@
             i: integer;
             i = i + foo();
             a: integer = foo();
+            fl: float = bar(foo());
+            fl = bar("error here");
         }
         foo: function auto() {
             }
+        bar: function float (z: auto){
+            
+        }
         
         

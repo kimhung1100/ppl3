@@ -1,1 +1,1 @@
-Type mismatch in Variable Declaration: VarDecl(a, IntegerType, FuncCall(foo, []))
+Type mismatch in expression: FuncCall(bar, [StringLit(error here)])

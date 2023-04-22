@@ -471,18 +471,39 @@ class CheckerSuite(unittest.TestCase):
         self.assertTrue(TestChecker.test(input, expect, 430))
         
     def test_431(self):
+        """infer parameter"""
         input = """
         main: function void() {
             i: integer;
             i = i + foo();
             a: integer = foo();
+            fl: float = bar(foo());
+            fl = bar("error here");
+        }
+        foo: function auto() {
+            }
+        bar: function float (z: auto){
+            
+        }
+        
+        """
+        expect = "Type mismatch in expression: FuncCall(bar, [StringLit(error here)])"
+        self.assertTrue(TestChecker.test(input, expect, 431))
+    
+    def test_432(self):
+        input = """
+        main: function void() {
+            foo();
+            a: integer = foo() + 1;
+            z: string = foo();
         }
         foo: function auto() {
             }
         
+        
         """
-        expect = "Type mismatch in Variable Declaration: VarDecl(a, IntegerType, FuncCall(foo, []))"
-        self.assertTrue(TestChecker.test(input, expect, 431))
+        expect = "Type mismatch in Variable Declaration: VarDecl(z, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 432))
         
     def test_463(self):
         input = """
@@ -646,7 +667,7 @@ class CheckerSuite(unittest.TestCase):
         input = """
                     main: function void() {
                         b : float = 3.5;
-                        x: array [2, 3, 2] of integer = {{{1, 2}, {1, 2}}, {{1, 2}, {1, "2"}, {1, 2}}}
+                        x: array [2, 3, 2] of integer = {{{1, 2}, {1, 2}}, {{1, 2}, {1, "2"}, {1, 2}}};
                     }
                         
                 """

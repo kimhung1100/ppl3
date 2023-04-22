@@ -13,14 +13,17 @@ class ParamType:
         self.returnType = returnType
         self.inherit = inherit
 
-# luu tru var hoac function, isFunction nhan gia tri boolean 
-# function: mtype.param la [Mtype(a, IntegerType())], .value luon la None
-# variable: mtype.param luon la [], value co the khac None
+# luu tru var hoac function, 
+# 
+# flag de xac dinh var hay function
+# flag = 0: var
+# flag = 1: function da duoc khai bao
+# flag = 2: function chua duoc khai bao, nam trong prototype
 class Symbol:
-    def __init__(self, name, returnType, isFunction: bool = False, param = [],  inherit: str = None):
+    def __init__(self, name, returnType, flag: int = 0, param = [],  inherit: str = None):
         self.name = name
         self.returnType = returnType
-        self.isFunction = isFunction
+        self.flag = flag
         self.param = param
         self.inherit = inherit
         # self.value = value
@@ -83,11 +86,12 @@ def infer(name, typ, param):
                 sym.returnType = typ
                 return typ
     # case id is not in env, change in prototype, and add to env
-    symAddEnv = None # funcCall, add to env, and it param
-    for sym in prototype:
-        if sym.name == name:
-            sym.returnType = typ
-            ret = typ
+    # symAddEnv = None
+    # for sym in prototype:
+    #     if sym.name == name:
+    #         sym.returnType = typ
+            
+    #         ret = typ
     
 # _________________________________________________________
 # infer typ for param_name in func_name
@@ -139,7 +143,7 @@ class StaticChecker(Visitor):
         
         # raise NoEntryPoint() in the end of 2nd check
         for func in env[-1]:
-            if func.name == "main" and type(func.returnType) == VoidType and func.isFunction == True:
+            if func.name == "main" and type(func.returnType) == VoidType and func.flag == 1:
                 return
         raise NoEntryPoint()
     
@@ -214,7 +218,8 @@ class StaticChecker(Visitor):
         # check redeclare function
         for sym in env[0]:
             if sym.name == ast.name:
-                raise Redeclared(Function(), ast.name) # function is already declared
+                if(sym.flag != 1):
+                    raise Redeclared(Function(), ast.name) # function is already declared
         symInfered = None
         for sym in globalScopePrototype:
             if sym.name == ast.name:
@@ -313,7 +318,7 @@ class StaticChecker(Visitor):
             if beFound == 0:
                 raise Undeclared(Function(), parentFuncName)
             # check parent is a function when call super
-            if parent_function.isFunction == False:
+            if parent_function.flag == 0:
                 raise Undeclared(Function(), parentFuncName)
             
             # case call super or preventdefault
@@ -636,7 +641,7 @@ class StaticChecker(Visitor):
             raise Undeclared(Function(), ast.name)
             
 
-        if funcSym.isFunction == False:
+        if funcSym.flag == 0:
             raise TypeMismatchInStatement(ast) 
         if len(ast.args) > len(funcSym.param):
             raise TypeMismatchInStatement(ast)
@@ -653,6 +658,9 @@ class StaticChecker(Visitor):
             elif type(arg) is not type(funcSym.param[i].returnType):
                 
                 raise TypeMismatchInStatement(ast)
+        if (beFound == 2): # call func chua duoc declare, declare 
+            funcSym.flag = 1
+            env[-1].append(funcSym)
         return # stmt chi check loi, khong tra ve kieu
         
     # ************************************************************
@@ -693,7 +701,7 @@ class StaticChecker(Visitor):
             raise Undeclared(Function(), ast.name)
             
 
-        if funcSym.isFunction == False:
+        if funcSym.flag == 0:
             raise TypeMismatchInExpression(ast)
         
         if len(ast.args) > len(funcSym.param):
@@ -711,6 +719,9 @@ class StaticChecker(Visitor):
             elif type(arg) is not type(funcSym.param[i].returnType):
                 
                 raise TypeMismatchInExpression(ast)
+        if (beFound == 2): # call func chua duoc declare, declare 
+            funcSym.flag = 1
+            env[-1].append(funcSym)
         return symbol.returnType # expr tra ve kieu
         
         
@@ -735,10 +746,10 @@ class StaticChecker(Visitor):
             elif type(leftType) is AutoType and type(rightType) is AutoType:
                 return FloatType() # testcase khong co 2 cai auto ko suy dien dc, tra ve float tang ti le dung
             elif type(leftType) is AutoType:
-                infer(ast.left.name, type(rightType), param)
+                infer(ast.left.name, rightType, param)
                 return rightType
             elif type(rightType) is AutoType:
-                infer(ast.right.name, type(leftType), param)
+                infer(ast.right.name, leftType, param)
                 return leftType
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return IntegerType()
@@ -755,10 +766,10 @@ class StaticChecker(Visitor):
                 infer(ast.right.name, IntegerType, param)
                 return IntegerType()
             elif type(leftType) is AutoType:
-                infer(ast.left.name, type(rightType), param)
+                infer(ast.left.name, rightType, param)
                 return IntegerType()
             elif type(rightType) is AutoType:
-                infer(ast.right.name, type(leftType), param)
+                infer(ast.right.name, leftType, param)
                 return IntegerType()
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return IntegerType()
@@ -773,10 +784,10 @@ class StaticChecker(Visitor):
                 infer(ast.right.name, BooleanType, param)
                 return BooleanType()
             elif type(leftType) is AutoType:
-                infer(ast.left.name, type(rightType), param)
+                infer(ast.left.name, rightType, param)
                 return BooleanType()
             elif type(rightType) is AutoType:
-                infer(ast.right.name, type(leftType), param)
+                infer(ast.right.name, leftType, param)
                 return BooleanType()
             elif type(leftType) is BooleanType and type(rightType) is BooleanType:
                 return BooleanType()
