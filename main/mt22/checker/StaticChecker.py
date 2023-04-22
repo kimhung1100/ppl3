@@ -901,7 +901,8 @@ class StaticChecker(Visitor):
                 raise IllegalArrayLiteral(ast)
         if type(typEle) == ArrayType: # flatten array
             dimen = 1
-            [dimen := dimen * i for i in typEle.dimensions]
+            for i in typEle.dimensions:
+                dimen *= i
             return ArrayType([len(ast.explist),dimen], typEle.typ)
         return ArrayType([len(ast.explist)], typEle)
     
