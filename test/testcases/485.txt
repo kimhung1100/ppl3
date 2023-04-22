@@ -1,6 +1,6 @@
 
         main: function void() {
-            a: array[2,3] of integer = foo(1,2.0);
+            
         }
         foo: function auto (x: integer, y: float){
             writeFloat(main());

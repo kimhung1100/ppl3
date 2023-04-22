@@ -1,0 +1,10 @@
+
+        foo: function integer(){
+            
+        }
+        main: function void(){
+            foo: integer = 3;
+            a: integer;
+            a = foo(); // line 5
+        }
+        

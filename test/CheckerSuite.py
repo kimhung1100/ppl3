@@ -303,13 +303,13 @@ class CheckerSuite(unittest.TestCase):
         main: function void() {
             i: integer;
             for (i = 1, i<10, i+3){
-                writeFloat(i);
+                printInteger(i);
                 break;
             }
         }
-        a: array [1,2] of integer = {{1,2}};
+        a: array [2,2] of integer = {{1,2}};
         """
-        expect = "Type mismatch in Variable Declaration: VarDecl(a, ArrayType([1, 2], IntegerType), ArrayLit([ArrayLit([IntegerLit(1), IntegerLit(2)])]))"
+        expect = "Type mismatch in Variable Declaration: VarDecl(a, ArrayType([2, 2], IntegerType), ArrayLit([ArrayLit([IntegerLit(1), IntegerLit(2)])]))"
         self.assertTrue(TestChecker.test(input, expect, 420))
     
     def test_421(self):
@@ -318,7 +318,7 @@ class CheckerSuite(unittest.TestCase):
         main: function void() {
             i: integer;
             for (i = 1, i<10, i+3){
-                writeFloat(i);
+                printInteger(i);
                 break;
             }
             x: array[2] of integer = {1,2};
@@ -335,7 +335,7 @@ class CheckerSuite(unittest.TestCase):
         main: function void() {
             i: integer;
             for (i = 1, i<10, i+3){
-                writeFloat(i);
+                printInteger(i);
                 break;
             }
             x: array[2] of integer = {1,2};
@@ -352,7 +352,7 @@ class CheckerSuite(unittest.TestCase):
         main: function void() {
             i: integer;
             for (i = 1, i<10, i+3){
-                writeFloat(i);
+                printInteger(i);
                 break;
             }
             x: array[2] of integer = {1,2};
@@ -360,7 +360,7 @@ class CheckerSuite(unittest.TestCase):
         }
         
         """
-        expect = "Type mismatch in expression: i"
+        expect = "Type mismatch in expression: ArrayCell(i, [IntegerLit(2)])"
         self.assertTrue(TestChecker.test(input, expect, 423))
     
     def test_424(self):
@@ -381,7 +381,7 @@ class CheckerSuite(unittest.TestCase):
         main: function void() {
             i: integer;
             for (i = 1, i<10, i+3){
-                writeFloat(i);
+                printInteger(i);
                 break;
             }
             x: array[2] of integer = {1,2};
@@ -389,20 +389,158 @@ class CheckerSuite(unittest.TestCase):
         }
         
         """
-        expect = "Type mismatch in expression: i"
+        expect = "Type mismatch in expression: ArrayCell(i, [IntegerLit(2)])"
         self.assertTrue(TestChecker.test(input, expect, 425))
 
-    def test_486(self):
+    def test_474(self):
         input = """
+        main: function void() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                printInteger(i);
+                break;
+            }
+        }
+        a: array [1,2] of integer = {{1,2}};
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 474))
+        
+    def test_475(self):
+        input = """
+                    x: array[4] of integer = foo(10);
+                    foo: function array[4] of integer (n: float) {
+                        return {n, n+1, n+2, n+3};
+                    }
+                        
+                """
+        expect = """Type mismatch in expression: FuncCall(foo, [IntegerLit(10)])"""
+        self.assertTrue(TestChecker.test(input, expect, 475))
+        
+    def test_476(self):
+        input = """
+                    main: function void() {
+                        b : float = 3.5;
+                        x: array [2, 3, 2] of integer = {{{1, 2}, {1, 2}}, {{1, 2}, {1, "2"}, {1, 2}}}
+                    }
+                        
+                """
+        expect = """Illegal array literal: ArrayLit([IntegerLit(1), StringLit(2)])"""
+        self.assertTrue(TestChecker.test(input, expect, 476))
+    
+    def test_477(self):
+        input = """
+                    x: array[4] of integer = foo(10);
+                    foo: function array[2, 2] of integer (n: integer) {
+                        return {n, n+1, n+2, n+3};
+                    }
+                        
+                """
+        expect = """Type mismatch in Variable Declaration: VarDecl(x, ArrayType([4], IntegerType), FuncCall(foo, [IntegerLit(10)]))"""
+        self.assertTrue(TestChecker.test(input, expect, 477))
+    
+    def test_478(self):
+        input = """
+                    x: array[4] of integer = foo(10);
+                    foo: function array[4] of integer (n: integer) {
+                        return {n, n+1, n+2, n+3};
+                    }
+                        
+                """
+        expect = """No entry point"""
+        self.assertTrue(TestChecker.test(input, expect, 478))
+        
+    def test_479(self):
+        input = """
+                    c: array[2,2] of integer = { {1,2.0}, {2,1} };
+                """
+        expect = """Illegal array literal: ArrayLit([IntegerLit(1), FloatLit(2.0)])"""
+        self.assertTrue(TestChecker.test(input, expect, 479))
+    
+    def test_480(self):
+        input = """
+                    a: array[2,2] of integer = { {1,3}, {1,4} };
+                    c: array[2,2] of integer = { {1,2}, {2,1} };
+                    d: integer = 3;
+                    b: integer = a[d];
+                """
+        expect = """Type mismatch in expression: ArrayCell(a, [Id(d)])"""
+        self.assertTrue(TestChecker.test(input, expect, 480))
+    
+    def test_481(self):
+        """khong suy dien khi duyet ham, goi ham lan dau moi suy dien"""
+        input = """
+        test1 : function string(y : auto) {
+            y = 2; // line 2
+            return "abc";
+        }
+        main: function void () {
+            test1(true); // line 6
+            test1(1);
+        }
+        """
+        expect = "Type mismatch in statement: CallStmt(test1, IntegerLit(1))"
+        self.assertTrue(TestChecker.test(input, expect, 481))
+    
+    def test_482(self):
+        input = """
+        main: function void(){
+            printInteger(a);
+        }
+        """
+        expect = "Undeclared Identifier: a"
+        self.assertTrue(TestChecker.test(input, expect, 482))
+    
+    def test_483(self):
+        input = """
+        main: function void(){
+            printInteger(a);
+        }
+        a: integer = 1;
+        """
+        expect = "Undeclared Identifier: a"
+        self.assertTrue(TestChecker.test(input, expect, 483))
+
+    def test_484(self):
+        input = """
+        foo: function integer(){
+            
+        }
+        main: function void(){
+            foo: integer = 3;
+            a: integer;
+            a = foo(); // line 5
+        }
+        """
+        expect = "Type mismatch in expression: FuncCall(foo, [])"
+        self.assertTrue(TestChecker.test(input, expect, 484))
+        
+    def test_485(self):
+        input = """
+        main: function void() {
+            
+        }
         foo: function auto (x: integer, y: float){
             writeFloat(main());
         }
-        main: function void() {
-            a: array[2,3] of integer = foo(1,2);
-        }
+        
         
         """
-        expect = "Type mismatch in expression: FuncCall(main, [])"
+        expect = "Type mismatch in statement: CallStmt(writeFloat, FuncCall(main, []))"
+        self.assertTrue(TestChecker.test(input, expect, 485))
+        
+    def test_486(self):
+        input = """
+        main: function void() {
+            a: array[2,3] of integer = foo(1,2.0);
+        }
+        foo: function auto (x: integer, y: float){
+            writeFloat(main());
+        }
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(a, ArrayType([2, 3], IntegerType), FuncCall(foo, [IntegerLit(1), FloatLit(2.0)]))"
         self.assertTrue(TestChecker.test(input, expect, 486))
         
     def test_487(self):
@@ -526,7 +664,7 @@ class CheckerSuite(unittest.TestCase):
             }
         }
         """
-        expect = "No entry point"
+        expect = "Type mismatch in statement: CallStmt(writeFloat, Id(i))"
         self.assertTrue(TestChecker.test(input, expect, 494))
         
     def test_495(self):

@@ -74,7 +74,8 @@ class GetEnv(Visitor):
 # infer typ for id
 # infer string
 # _________________________________________________________
-def infer(name, typ, env):
+def infer(name, typ, param):
+    env = param[0]
     for symbolList in env:
         for sym in symbolList:
             if sym.name == name:
@@ -163,6 +164,7 @@ class StaticChecker(Visitor):
                 raise Redeclared(Variable(), ast.name)
         if param[0] == True: # in global scope, env = [globalEnv]
             env[0].append(Symbol(ast.name, ast.typ))
+        # kiem tra tinh hop le cua ve trai
         if ast.init is None:
             
             if type(ast.typ) is AutoType: # declare auto type var but no init
@@ -171,7 +173,7 @@ class StaticChecker(Visitor):
         
         elif ast.init is not None:
             # if ast.typ is ArrayType:
-            exprType = self.visit(ast.init, env)
+            exprType = self.visit(ast.init, [env, globalEnvPrototype])
             if type(ast.typ) is AutoType:
                 return Symbol(ast.name, exprType)
             elif type(ast.typ) is IntegerType and type(exprType) is FloatType:
@@ -325,11 +327,11 @@ class StaticChecker(Visitor):
                     
                     # check type of each param of super function and the parent function
                     for i in range(len(expr.args)):
-                        typArgs = self.visit(expr.args[i], env)
+                        typArgs = self.visit(expr.args[i], [env, prototypeEnv])
                         if type(typArgs) is AutoType and type(parent_function[i].returnType) is AutoType:
                             pass # not error type cannot be inferred
                         elif type(typArgs) is AutoType: # infer the type of param in father function for id in super function
-                            infer(expr.args[i].name, parent_params[i].returnType, globalEnv)
+                            infer(expr.args[i].name, parent_params[i].returnType, [env, prototypeEnv])
                             pass 
                         elif type(parent_params[i].returnType) is AutoType: # infer the type of param in super function for father function
                             inferParam(parent_function.name,parent_function.param[i].name, typArgs, env[-1] if beFound == 1 else prototypeEnv)
@@ -404,26 +406,26 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitAssignStmt(self, ast, param):
         env = param[1]
+        prototype = param[2]
         is_init_for = param[6]
-        rightType = self.visit(ast.rhs, env)
-        leftType = self.visit(ast.lhs, env)
+        rightType = self.visit(ast.rhs, [env, prototype])
+        leftType = self.visit(ast.lhs, [env, prototype])
 
         if is_init_for: 
             if type(leftType) is not IntegerType:
                 raise TypeMismatchInStatement(ast)
-            
         if type(leftType) is AutoType:            
-            infer(ast.lhs.name, rightType, env)
+            infer(ast.lhs.name, rightType, [env, prototype])
             return 
         elif type(rightType) is AutoType:
-            infer(ast.rhs.name, leftType, env)
+            infer(ast.rhs.name, leftType, [env, prototype])
             return 
         elif type(leftType) is IntegerType and type(rightType) is FloatType:
             raise TypeMismatchInStatement(ast)
         elif type(leftType) is FloatType and type(rightType) is IntegerType:
             pass
         elif type(leftType) is not type(rightType):
-            raise TypeMismatchInStatement(ast)
+            raise TypeMismatchInExpression(ast.rhs)
         else: # leftType == rightType
             return
     # _________________________________________________________    
@@ -431,7 +433,8 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitIfStmt(self, ast, param):
         env = param[1]
-        cond = self.visit(ast.cond, env)
+        prototype = param[2]
+        cond = self.visit(ast.cond, [env, prototype])
         not_return_in_block = param[7]
         
         if type(cond) is not BooleanType:
@@ -457,13 +460,14 @@ class StaticChecker(Visitor):
     # _________________________________________________________  
     def visitForStmt(self, ast, param):
         env = param[1]
+        prototype = param[2]
         is_in_loop = param[5]
         not_return_in_block = param[7]
         assignStmt = self.visit(ast.init, [param[0], env, param[2], param[3], param[4], is_in_loop, True, param[7]]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
-        cond = self.visit(ast.cond, env)
+        cond = self.visit(ast.cond, [env, prototype])
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
-        upd = self.visit(ast.upd, env)
+        upd = self.visit(ast.upd, [env, prototype])
         if type(upd) != IntegerType:
             raise TypeMismatchInStatement(ast)
 
@@ -484,9 +488,10 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitWhileStmt(self, ast, param): 
         env = param[1]
+        prototype = param[2]
         is_in_loop = param[5]
         not_return_in_block = param[7]
-        cond = self.visit(ast.cond, env)
+        cond = self.visit(ast.cond, [env, prototype])
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
         
@@ -507,6 +512,7 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitDoWhileStmt(self, ast, param): 
         env = param[1]
+        prototype = param[2]
         is_in_loop = param[5]
         not_return_in_block = param[7]
         
@@ -519,7 +525,7 @@ class StaticChecker(Visitor):
             not_return_in_block.pop()
         else:
             self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
-        cond = self.visit(ast.cond, env)
+        cond = self.visit(ast.cond, [env, prototype])
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
         
@@ -559,6 +565,7 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitReturnStmt(self, ast, param):
         env = param[1]
+        prototype = param[2] 
         currentFunc = param[4]
         is_in_loop = param[5]
         not_return_in_block = param[7]
@@ -574,7 +581,7 @@ class StaticChecker(Visitor):
         if ast.expr is None: # dung == la error luon
             return_type = VoidType()
         else :
-            return_type = self.visit(ast.expr, env)
+            return_type = self.visit(ast.expr, [env, prototype])
         
         for sym in env[-1]:
             if sym.name == currentFunc.name:
@@ -625,15 +632,16 @@ class StaticChecker(Visitor):
         if funcSym.isFunction == False:
             raise TypeMismatchInStatement(ast) 
         if len(ast.args) > len(funcSym.param):
-            raise TypeMismatchInExpression(ast.args[len(funcSym.param)])
+            raise TypeMismatchInStatement(ast)
         elif len(ast.args) < len(funcSym.param):
-            raise TypeMismatchInExpression()
+            raise TypeMismatchInStatement(ast)
         for i in range(len(ast.args)):
-            arg = self.visit(ast.args[i], env)
+            arg = self.visit(ast.args[i], [env, prototype])
             if type(funcSym.param[i].returnType) is AutoType:
                 inferParam(funcSym.name,funcSym.param[i].name, arg, env[-1] if beFound == 1 else prototype)
             elif type(arg) is IntegerType and type(funcSym.param[i].returnType) is FloatType:
                 # convert the param to float
+                raise TypeMismatchInStatement(ast)
                 pass
             elif type(arg) is not type(funcSym.param[i].returnType):
                 
@@ -646,35 +654,59 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     # FuncCall(Expr)
     # name: str, args: List[Expr]
-    # param env 
+    # param env, prototype
     # _________________________________________________________
     def visitFuncCall(self, ast, param):
-        env = param
-        for localEnv in env[:-1]: # find lan luot tu local ra global
+        env = param[0]
+        prototype = param[1]
+        if ast.name == "super" or ast.name == "preventDefault":
+            return # khong co testcase nay
+        # check function name in local
+        for localEnv in env[:-1]:
             for symbol in localEnv: # find id in the current environment
-                if ast.name == symbol.name and symbol.isFuntion == False:
-                    
+                if ast.name == symbol.name:
                     raise TypeMismatchInExpression(ast) # id is declared in current scope but is not a function
-        for symbol in env[-1]: # param[-1] is the list of Symbol() in the global environment
-            if ast.name == symbol.name:
-                if len(ast.args) > len(symbol.param):
-                    raise TypeMismatchInExpression(ast.args[len(symbol.param)])
-                elif len(ast.args) < len(symbol.param):
-                    raise TypeMismatchInExpression()
-                for i in range(len(ast.args)):
-                    
-                    arg = self.visit(ast.args[i], env)
-                    if symbol.param[i].returnType == AutoType:
-                        inferParam(symbol.name,symbol.param[i].name, arg, env)
-                    elif arg == IntegerType and symbol.param[i].returnType == FloatType:
-                        # convert the param to float
-                        pass
-                    elif arg != symbol.param[i].returnType:
-                        
-                        raise TypeMismatchInExpression(ast)
-                return symbol.returnType # expr tra ve kieu
+                
+        # check function name in env, if not found, check in prototype, and infer param and return type
+        beFound = 0 # 0: not found, 1: found in env, 2: found in prototype
+        funcSym = None
+        for symbol in env[-1]:
+            if symbol.name == ast.name:
+                beFound = 1
+                funcSym = symbol
+                break
         
-        raise Undeclared(Function(), ast.name)
+        if beFound == 0:
+            for symbol in prototype:
+                if symbol.name == ast.name:
+                    beFound = 2
+                    funcSym = symbol
+                    break
+        if beFound == 0:
+            raise Undeclared(Function(), ast.name)
+            
+
+        if funcSym.isFunction == False:
+            raise TypeMismatchInExpression(ast)
+        
+        if len(ast.args) > len(funcSym.param):
+            raise TypeMismatchInExpression(ast.args[len(funcSym.param)])
+        elif len(ast.args) < len(funcSym.param):
+            raise TypeMismatchInExpression()
+        for i in range(len(ast.args)):
+            arg = self.visit(ast.args[i], [env, prototype])
+            if type(funcSym.param[i].returnType) is AutoType:
+                inferParam(funcSym.name,funcSym.param[i].name, arg, env[-1] if beFound == 1 else prototype)
+            elif type(arg) is IntegerType and type(funcSym.param[i].returnType) is FloatType:
+                # convert the param to float
+                raise TypeMismatchInExpression(ast)
+                pass
+            elif type(arg) is not type(funcSym.param[i].returnType):
+                
+                raise TypeMismatchInExpression(ast)
+        return symbol.returnType # expr tra ve kieu
+        
+        
     
     # _________________________________________________________
     # op: str, left: Expr, right: Expr
@@ -808,8 +840,10 @@ class StaticChecker(Visitor):
     
     
     def visitId(self, ast, param):
-        for env in param:
-            for sym in env:
+        env = param[0]
+        prototype = param[1]
+        for e in env:
+            for sym in e:
                 if ast.name == sym.name:
                     return sym.returnType
         raise Undeclared(Identifier(), ast.name)
@@ -830,7 +864,7 @@ class StaticChecker(Visitor):
     # name: str, cell: List[Expr]
     def visitArrayCell(self, ast, param):
         # thu tu check tu ngoai vao trong, check id, check length, check type exp
-        env = param
+        env = param[0]
         # find array in env
         arr = None
         for i in env:
@@ -845,15 +879,15 @@ class StaticChecker(Visitor):
             if len(ast.cell) > len(arr.dimensions):
                 raise TypeMismatchInExpression(ast.cell[len(arr.dimensions)]) # exp du thua dau tien
             elif len(ast.cell) < len(arr.dimensions):
-                raise TypeMismatchInExpression() # voi dau vao rong, tuong tu giai thich super
+                raise TypeMismatchInExpression(ast) # voi dau vao rong, tuong tu giai thich super
             # check type
             for i in range(len(ast.cell)):
                 typCell = self.visit(ast.cell[i], param)
-                if typCell is not IntegerType():
+                if typCell is not IntegerType:
                     raise TypeMismatchInExpression(ast.cell[i])
             return arr.typ
         else: # id khong phai la array
-            raise TypeMismatchInExpression(ast.name)
+            raise TypeMismatchInExpression(ast)
         
     
     # explist: List[Expr]
@@ -865,6 +899,10 @@ class StaticChecker(Visitor):
         for ele in elements:
             if type(ele) != type(typEle):
                 raise IllegalArrayLiteral(ast)
+        if type(typEle) == ArrayType: # flatten array
+            dimen = 1
+            [dimen := dimen * i for i in typEle.dimensions]
+            return ArrayType([len(ast.explist),dimen], typEle.typ)
         return ArrayType([len(ast.explist)], typEle)
     
     def visitIntegerLit(self, ast, param): return IntegerType()
