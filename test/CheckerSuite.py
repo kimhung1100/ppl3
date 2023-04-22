@@ -392,6 +392,79 @@ class CheckerSuite(unittest.TestCase):
         expect = "Type mismatch in expression: i"
         self.assertTrue(TestChecker.test(input, expect, 425))
 
+    def test_486(self):
+        input = """
+        foo: function auto (x: integer, y: float){
+            writeFloat(main());
+        }
+        main: function void() {
+            a: array[2,3] of integer = foo(1,2);
+        }
+        
+        """
+        expect = "Type mismatch in expression: FuncCall(main, [])"
+        self.assertTrue(TestChecker.test(input, expect, 486))
+        
+    def test_487(self):
+        """test_TypeMismatchInBinExp_REMAINDER""" 
+        # OPERAND TYPE: INT
+        input = """
+        foo: function integer (a: integer) inherit bar {
+            super(1, 2);
+            a = b;
+        }
+        bar: function integer (inherit a: integer, a: integer) {
+            a = a;
+        }
+        """
+        expect = "Invalid Parameter: a"
+        self.assertTrue(TestChecker.test(input, expect, 487))
+        
+    def test_488(self):
+        """test_TypeMismatchInBinExp_REMAINDER""" 
+        # OPERAND TYPE: INT
+        input = """
+        foo: function integer (a: integer) inherit bar {
+            super(1, 2);
+            a = b;
+        }
+        bar: function integer (inherit b: integer, c: auto) {
+            
+            c = b + 100;
+        }
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 488))
+        
+    def test_489(self):
+        """test_TypeMismatchInBinExp_REMAINDER""" 
+        # OPERAND TYPE: INT
+        input = """
+        foo: function integer (a: integer) inherit bar {
+            preventDefault();
+            a = b;
+        }
+        bar: function integer (inherit a: integer, a: integer) {
+            a = a;
+        }
+        """
+        expect = "Undeclared Identifier: b"
+        self.assertTrue(TestChecker.test(input, expect, 489))
+    
+    def test_490(self):
+        """test_TypeMismatchInBinExp_REMAINDER""" 
+        # OPERAND TYPE: INT
+        input = """
+        foo: function integer (a: integer) inherit bar {
+            preventDefault();
+        }
+        bar: function integer (inherit a: integer, a: integer) {
+            a = a;
+        }
+        """
+        expect = "Redeclared Parameter: a"
+        self.assertTrue(TestChecker.test(input, expect, 490))
+    
     def test_491(self):
         """break """ 
         # OPERAND TYPE: INT
