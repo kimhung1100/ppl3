@@ -1,0 +1,8 @@
+
+        fact: function integer () {
+            i: integer;
+            while(i<10) 
+                return 1;
+            return "error";
+        }
+        

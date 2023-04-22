@@ -136,9 +136,23 @@ class StaticChecker(Visitor):
         raise NoEntryPoint()
     
     # _____________________________________________________________
+
+    # param of Vardecl can be 2 type
+    # type1 : call from program
+    # # func/var param # [0] program_call: bool, flag for distinguish visit vardecl from program or 
+			            # [1] env,
+			            # [2] globalScopePrototype
+    # type2 : call from stmt
+    # stmt param	# [0] program_call: bool, flag for distinguish visit vardecl from program or 
+				# [1] env, 
+				# [2] globalScopePrototype
+				# [3] is_in_loop: [True], # list flag for check break, continue stmt error must in loop
+				# [4] is_function_body: Bool, # only use when funcdclare visit block stmt, if == False, block call from stmt
+				# [5] Symbol() of current function, 
+				# [6] is_init_for: Bool, # flag for check init stmt of for stmt
+				# [7] is_in_if: [True] # list flag
+    # _____________________________________________________________
     # name: str, typ: Type, init: Expr or None = None
-    # param (isGlobal: Bool,env , globalEnvPrototype)
-    # param[0] = True if in global scope
     # _____________________________________________________________
     def visitVarDecl(self, ast, param):
         env = param[1]
@@ -175,7 +189,9 @@ class StaticChecker(Visitor):
         
     # _____________________________________________________________
     # name: str, return_type: Type, params: List[ParamDecl], inherit: str or None, body: BlockStmt
-    # param (isGlobal: Bool, env ,[Symbol()] in global scope)
+    # # func/var param # [0] program_call: bool, flag for distinguish visit vardecl from program or 
+			            # [1] env,
+			            # [2] globalScopePrototype
     # _____________________________________________________________
     def visitFuncDecl(self, ast, param):
         env = param[1]
@@ -190,7 +206,7 @@ class StaticChecker(Visitor):
         for sym in env[0]:
             if sym.name == ast.name:
                 raise Redeclared(Function(), ast.name) # function is already declared
-        symInfered = False
+        symInfered = None
         for sym in globalScopePrototype:
             if sym.name == ast.name:
                 symInfered = sym
@@ -202,10 +218,6 @@ class StaticChecker(Visitor):
         for i in ast.params:
             paramList.append(self.visit(i, paramList))
             
-        # create function symbol
-        # funcSymbol = Symbol(ast.name, ast.return_type, True, paramList, ast.inherit)
-        # add function symbol to local scope
-        # env[0] += [funcSymbol]
         # symbol been infered to scope
         env[0] += [symInfered]
         # add param to local scope, which is inferd
@@ -215,15 +227,9 @@ class StaticChecker(Visitor):
         # create new scope
         env = [[]] + env
         env[0] = localEnv            
-        # check if the function inherits from another function
-        parent_function = None
-        
-            
-            
-            
+           
         # visit block statement
-        # stmt param (is_in_loop: Bool, env,  is_function_body: Bool, Symbol() of current function,Symbol() of parent function, is_init_for: Bool, globalScopePrototype)
-        self.visit(ast.body, [False, env, True, symInfered ,parent_function, False, globalScopePrototype])
+        self.visit(ast.body, [False, env, globalScopePrototype, True, symInfered, [] , False, []])
         # end of scope block statement, remove local scope
         env = env[1:]
         
@@ -240,61 +246,41 @@ class StaticChecker(Visitor):
     
         return Symbol(ast.name, ast.typ)
         
-    # _________________________________________________________
-    # lhs: LHS, rhs: Expr
-    # stmt param (is_in_loop: Bool, env, False, None, None, is_init_for: Bool)
-    # _________________________________________________________
-    def visitAssignStmt(self, ast, param):
-        env = param[1]
-        is_init_for = param[5]
-        rightType = self.visit(ast.rhs, env)
-        leftType = self.visit(ast.lhs, env)
 
-        if is_init_for: 
-            if type(leftType) is not IntegerType:
-                raise TypeMismatchInStatement(ast)
-            
-        if type(leftType) is AutoType:            
-            infer(ast.lhs, rightType, env)
-            return 
-        elif type(rightType) is AutoType:
-            infer(ast.rhs, leftType, env)
-            return 
-        elif type(leftType) is IntegerType and type(rightType) is FloatType:
-            raise TypeMismatchInStatement(ast)
-        elif type(leftType) is FloatType and type(rightType) is IntegerType:
-            pass
-        elif type(leftType) is not type(rightType):
-            raise TypeMismatchInStatement(ast)
-        else: # leftType == rightType
-            return
     
     # *********************************************************
+    # _______________GROUP VISIT STMT__________________________
+    # *********************************************************
+    # stmt param	# [0] program_call: bool, flag for distinguish visit vardecl from program or 
+				# [1] env, 
+				# [2] globalScopePrototype
+				# [3] is_function_body_block: Bool, # only use when funcdclare visit block stmt, if == False, block call from stmt
+				# [4] Symbol() of current function, 
+				# [5] is_in_loop: [True], # list flag for check break, continue stmt error must in loop
+				# [6] is_init_for: Bool, # flag for check init stmt of for stmt
+				# [7] not_return_in_block: [True] # list flag for return, True is chua return in block
+    # rule 1: stmt not used that parameter, pass param[i] in visit next stmt
+    # _________________________________________________________
+    # BlockStmt body: List[Stmt or VarDecl]
+    # _________________________________________________________
     # blockstmt is using by function or other stmt
     # if blockstmt is call from function, env is created in visitFuncDecl (1)
     # if blockstmt is call from other stmt, env is created in here (2)
     #       in case (1): if inherit, parentfunc is Symbol of parent function, 
     #                     has been checked in visitFuncDecl
     # _________________________________________________________
-    # BlockStmt body: List[Stmt or VarDecl]
-    # stmt param (is_in_loop: Bool, env, is_function_body: Bool, 
-    # Symbol() of current function,
-    # Symbol() of parent function) # not used
-    # is_init_for: Bool, 
-    # globalScopePrototype
-    # [7] is_init_if: Bool 
-    # _________________________________________________________
     def visitBlockStmt(self, ast, param):
-        is_in_loop = param[0]
         env = param[1]
-        is_func_body = param[2]
-        current_func = param[3]
-        # parent_func = param[4]
+        prototypeEnv = param[2]
+        is_func_body = param[3]
+        current_func = param[4]
+        is_in_loop = param[5]
+        is_init_for = param[6]
+        not_return_in_block = param[7]
         localEnv = []
-        prototypeEnv = param[6]
         # ____________________
         # case block statement is function body, 
-        # be called from visitFuncDecl,
+        # be called from visitFuncDecl,     
         # local env has been created in visitFuncDecl
         
         if current_func.inherit is not None:
@@ -397,49 +383,83 @@ class StaticChecker(Visitor):
             env[0] = localEnv  
         
         # xu ly chung cho ca 2 truong hop funcbody va blockbody
+        not_return_in_block.append(True)
+        
         
         for stmt in ast.body:
             
             if isinstance(stmt, VarDecl):
-                env[0].append(self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv, False]))
+                env[0].append(self.visit(stmt, [False, env, prototypeEnv,False, current_func, is_in_loop, is_init_for, not_return_in_block]))
             else: # stmt is Stmt
-                self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv, False])
+                self.visit(stmt, [False, env, prototypeEnv,False, current_func, is_in_loop, is_init_for, not_return_in_block])
         # if block is blockbody, local env is removed here
         # if block is function body, local env is removed in visitFuncDecl
         if is_func_body == False: 
             env = env[1:]
+        not_return_in_block.pop()
         return 
+        # _________________________________________________________
+    # lhs: LHS, rhs: Expr
+    # stmt param (is_in_loop: Bool, env, False, None, None, is_init_for: Bool)
+    # _________________________________________________________
+    def visitAssignStmt(self, ast, param):
+        env = param[1]
+        is_init_for = param[6]
+        rightType = self.visit(ast.rhs, env)
+        leftType = self.visit(ast.lhs, env)
+
+        if is_init_for: 
+            if type(leftType) is not IntegerType:
+                raise TypeMismatchInStatement(ast)
+            
+        if type(leftType) is AutoType:            
+            infer(ast.lhs.name, rightType, env)
+            return 
+        elif type(rightType) is AutoType:
+            infer(ast.rhs.name, leftType, env)
+            return 
+        elif type(leftType) is IntegerType and type(rightType) is FloatType:
+            raise TypeMismatchInStatement(ast)
+        elif type(leftType) is FloatType and type(rightType) is IntegerType:
+            pass
+        elif type(leftType) is not type(rightType):
+            raise TypeMismatchInStatement(ast)
+        else: # leftType == rightType
+            return
     # _________________________________________________________    
     # cond: Expr, tstmt: Stmt, fstmt: Stmt or None = None
-    # stmt param (is_in_loop: Bool, env, is_function_body: Bool, 
-    # Symbol() of current function,
-    # Symbol() of parent function) # not used
-    # is_init_for: Bool, 
-    # globalScopePrototype
-    # 7 in_if_stmt: Bool
     # _________________________________________________________
     def visitIfStmt(self, ast, param):
-        is_in_loop = param[0]
         env = param[1]
         cond = self.visit(ast.cond, env)
-            
+        not_return_in_block = param[7]
+        
         if type(cond) is not BooleanType:
             raise TypeMismatchInStatement(ast) # tiep tuc truyen tham so cho visit stmt
-        tstmt = self.visit(ast.tstmt, [is_in_loop, env, param[2], param[3], param[4], False, param[6], True]) 
-        fstmt = None
+        if type(ast.tstmt) is not BlockStmt:
+            not_return_in_block.append(True)
+            self.visit(ast.tstmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+            not_return_in_block.pop()
+        else:
+            self.visit(ast.tstmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+        
         if ast.fstmt is not None:
-            fstmt = self.visit(ast.fstmt, [is_in_loop, env, param[2], param[3], param[4], False, param[6], True])
+            if type(ast.fstmt) is not BlockStmt:
+                not_return_in_block.append(True)
+                self.visit(ast.fstmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+                not_return_in_block.pop()
+            else:
+                self.visit(ast.fstmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
             
     # _________________________________________________________    
     # init: AssignStmt, cond: Expr, upd: Expr, stmt: Stmt
     # stmt param (is_in_loop: Bool, env)
     # _________________________________________________________  
     def visitForStmt(self, ast, param):
-        is_in_loop = param[0]
         env = param[1]
-        is_in_loop = True
-        assignStmt = self.visit(ast.init, [is_in_loop, env, param[2], param[3], None, True, param[6], param[7]]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
-        
+        is_in_loop = param[5]
+        not_return_in_block = param[7]
+        assignStmt = self.visit(ast.init, [param[0], env, param[2], param[3], param[4], is_in_loop, True, param[7]]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
@@ -448,65 +468,87 @@ class StaticChecker(Visitor):
             raise TypeMismatchInStatement(ast)
 
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, param[2], param[3], None, False, param[6]])
+        is_in_loop.append(True)
+        if type(ast.stmt) is not BlockStmt:
+            not_return_in_block.append(True)
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+            not_return_in_block.pop()
+        else:
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
         env = env[1:]
+        is_in_loop.pop()
     
     # _________________________________________________________    
     # cond: Expr, stmt: Stmt
     # stmt param (is_in_loop: Bool, env)
     # _________________________________________________________
     def visitWhileStmt(self, ast, param): 
-        is_in_loop = param[0]
         env = param[1]
-        is_in_loop = True
-        funcSym = param[3]
+        is_in_loop = param[5]
+        not_return_in_block = param[7]
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
         
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, False, funcSym, None, False, param[6]])
+        is_in_loop.append(True)
+        if type(ast.stmt) is not BlockStmt:
+            not_return_in_block.append(True)
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+            not_return_in_block.pop()
+        else:
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
         env = env[1:]
+        is_in_loop.pop()
         
     # _________________________________________________________    
     # cond: Expr, stmt: BlockStmt
     # stmt param (is_in_loop: Bool, env)
     # _________________________________________________________
     def visitDoWhileStmt(self, ast, param): 
-        is_in_loop = param[0]
         env = param[1]
-        is_in_loop = True
+        is_in_loop = param[5]
+        not_return_in_block = param[7]
         
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, False, None, None, param[6]])
+        is_in_loop.append(True)
+        # dowhile stmt must be block stmt
+        if type(ast.stmt) is not BlockStmt:
+            not_return_in_block.append(True)
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
+            not_return_in_block.pop()
+        else:
+            self.visit(ast.stmt, [param[0], env, param[2], param[3], param[4], param[5], param[6], not_return_in_block])
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
             raise TypeMismatchInStatement(ast)
         
         env = env[1:]
+        is_in_loop.pop()
     
     # _________________________________________________________    
     # stmt param (is_in_loop: Bool, env)
     # _________________________________________________________
     def visitBreakStmt(self, ast, param):
-        is_in_loop = param[0]
         env = param[1]
-        if is_in_loop == False:
+        is_in_loop = param[5]
+        if len(is_in_loop) == 0:
             raise MustInLoop(ast)
-        else:
-            param[0] = False
+        elif is_in_loop[-1] == True: # case first break in loop
+            is_in_loop[-1] = False
+            return
+        else: # case second break
             return 
             
     # _________________________________________________________    
     # stmt param (is_in_loop: Bool, env)
     # _________________________________________________________
     def visitContinueStmt(self, ast, param): 
-        is_in_loop = param[0]
         env = param[1]
-        if is_in_loop == False:
+        is_in_loop = param[5]
+        if len(is_in_loop) == 0:
             raise MustInLoop(ast)
         else:
-            param[0] = False
             return 
     
     # _________________________________________________________
@@ -517,7 +559,16 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitReturnStmt(self, ast, param):
         env = param[1]
-        currentFunc = param[3]
+        currentFunc = param[4]
+        is_in_loop = param[5]
+        not_return_in_block = param[7]
+        if(len(not_return_in_block) == 0):
+            pass # never happen
+        
+        if not_return_in_block[-1] == False: # case second return
+            return # another return in block will be ignored
+        not_return_in_block[-1] = False # case first return
+        
         return_type = None
         
         if ast.expr is None: # dung == la error luon
@@ -544,7 +595,7 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     def visitCallStmt(self, ast, param):
         env = param[1]
-        prototype = param[6]
+        prototype = param[2]
         if ast.name == "super" or ast.name == "preventDefault":
             return
         # check function name in local
@@ -589,7 +640,9 @@ class StaticChecker(Visitor):
                 raise TypeMismatchInStatement(ast)
         return # stmt chi check loi, khong tra ve kieu
         
-    
+    # ************************************************************
+    #  GROUP VISIT EXPRESSION
+    # Param: env
     # _________________________________________________________
     # FuncCall(Expr)
     # name: str, args: List[Expr]

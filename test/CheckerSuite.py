@@ -391,18 +391,83 @@ class CheckerSuite(unittest.TestCase):
         """
         expect = "Type mismatch in expression: i"
         self.assertTrue(TestChecker.test(input, expect, 425))
+
+    def test_491(self):
+        """break """ 
+        # OPERAND TYPE: INT
+        input = """
+        fact: function integer () {
+            i: integer;
+            do{
+                return 1;
+            }
+            while(i<10);
+            return "error";
+        }
+        """
+        expect = "Type mismatch in statement: ReturnStmt(StringLit(error))"
+        self.assertTrue(TestChecker.test(input, expect, 491))
+        
+    def test_492(self):
+        """break """ 
+        # OPERAND TYPE: INT
+        input = """
+        fact: function integer () {
+            i: integer;
+            while(i<10) 
+                return 1;
+            return "error";
+        }
+        """
+        expect = "Type mismatch in statement: ReturnStmt(StringLit(error))"
+        self.assertTrue(TestChecker.test(input, expect, 492))
     
+    def test_493(self):
+        """break """ 
+        # OPERAND TYPE: INT
+        input = """
+        fact: function integer () {
+            if (1<2) {
+                return 1;
+                return "not error 1";
+            } 
+            return "error";
+        }
+        """
+        expect = "Type mismatch in statement: ReturnStmt(StringLit(error))"
+        self.assertTrue(TestChecker.test(input, expect, 493))
+        
+    def test_494(self):
+        """break """ 
+        # OPERAND TYPE: INT
+        input = """
+        fact: function auto (n: integer) {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                writeFloat(i);
+                    for (i = 1, i<10, i+3){
+                        writeFloat(i);
+                        break;
+                }
+                break;
+            }
+        }
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 494))
+        
     def test_495(self):
         """test call stmt, infer type""" 
         # OPERAND TYPE: INT
         input = """
-        fact: function auto (n: integer) {
+        fact: function integer (n: integer) {
             if (n == 0) return 1;
             else return "hello";
         }
         """
         expect = "Type mismatch in statement: ReturnStmt(StringLit(hello))"
         self.assertTrue(TestChecker.test(input, expect, 495))
+    
     def test_496(self):
         """test call stmt, infer type""" 
         # OPERAND TYPE: INT
@@ -430,6 +495,7 @@ class CheckerSuite(unittest.TestCase):
         """
         expect = "Type mismatch in statement: CallStmt(bar, IntegerLit(1))"
         self.assertTrue(TestChecker.test(input, expect, 497))
+    
     def test_498(self):
         """test call stmt""" 
         # OPERAND TYPE: INT

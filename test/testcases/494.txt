@@ -1,0 +1,13 @@
+
+        fact: function auto (n: integer) {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                writeFloat(i);
+                    for (i = 1, i<10, i+3){
+                        writeFloat(i);
+                        break;
+                }
+                break;
+            }
+        }
+        
