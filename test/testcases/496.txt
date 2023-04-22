@@ -3,6 +3,6 @@
             bar(1);
         }
         bar: function integer (a: auto) {
-            b: integer = a;
+            b: integer = foo(1) + a;
         }
         

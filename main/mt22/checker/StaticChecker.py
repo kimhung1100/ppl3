@@ -282,6 +282,7 @@ class StaticChecker(Visitor):
     # Symbol() of parent function) # not used
     # is_init_for: Bool, 
     # globalScopePrototype
+    # [7] is_init_if: Bool 
     # _________________________________________________________
     def visitBlockStmt(self, ast, param):
         is_in_loop = param[0]
@@ -400,9 +401,9 @@ class StaticChecker(Visitor):
         for stmt in ast.body:
             
             if isinstance(stmt, VarDecl):
-                env[0].append(self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv]))
+                env[0].append(self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv, False]))
             else: # stmt is Stmt
-                self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv])
+                self.visit(stmt, [is_in_loop, env, False, current_func, None, False, prototypeEnv, False])
         # if block is blockbody, local env is removed here
         # if block is function body, local env is removed in visitFuncDecl
         if is_func_body == False: 
@@ -437,8 +438,7 @@ class StaticChecker(Visitor):
         is_in_loop = param[0]
         env = param[1]
         is_in_loop = True
-        funcSym = param[3]
-        assignStmt = self.visit(ast.init, [is_in_loop, env, False, None, None, True, param[6]]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
+        assignStmt = self.visit(ast.init, [is_in_loop, env, param[2], param[3], None, True, param[6], param[7]]) # id for assignStmt duoc chuan bi ti truoc, khong khoi tao luc nay, id nay kieu int
         
         cond = self.visit(ast.cond, env)
         if type(cond) != BooleanType:
@@ -448,7 +448,7 @@ class StaticChecker(Visitor):
             raise TypeMismatchInStatement(ast)
 
         env = [[]] + env
-        self.visit(ast.stmt, [is_in_loop, env, False, funcSym, None, False, param[6]])
+        self.visit(ast.stmt, [is_in_loop, env, param[2], param[3], None, False, param[6]])
         env = env[1:]
     
     # _________________________________________________________    

@@ -391,7 +391,18 @@ class CheckerSuite(unittest.TestCase):
         """
         expect = "Type mismatch in expression: i"
         self.assertTrue(TestChecker.test(input, expect, 425))
-        
+    
+    def test_495(self):
+        """test call stmt, infer type""" 
+        # OPERAND TYPE: INT
+        input = """
+        fact: function auto (n: integer) {
+            if (n == 0) return 1;
+            else return "hello";
+        }
+        """
+        expect = "Type mismatch in statement: ReturnStmt(StringLit(hello))"
+        self.assertTrue(TestChecker.test(input, expect, 495))
     def test_496(self):
         """test call stmt, infer type""" 
         # OPERAND TYPE: INT
@@ -400,7 +411,7 @@ class CheckerSuite(unittest.TestCase):
             bar(1);
         }
         bar: function integer (a: auto) {
-            b: integer = a;
+            b: integer = foo(1) + a;
         }
         """
         expect = "No entry point"
