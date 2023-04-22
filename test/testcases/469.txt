@@ -3,5 +3,5 @@
             
         }
         a: array [1,2] of integer = {{1,2}};
-        main: integer = 1;
+        b: array [1] of integer = a[1,2,3];
         

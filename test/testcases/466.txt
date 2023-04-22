@@ -1,0 +1,8 @@
+
+        
+        main: function integer () {
+            b: string;
+            b = 1 :: "2asc";
+        }
+        a: auto = main();
+        

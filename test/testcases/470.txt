@@ -1,0 +1,10 @@
+
+        main: function auto() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                break;
+            }
+        }
+        a: array [1,2] of integer = {{1,2}};
+        b: array [1] of integer = {main()};
+        

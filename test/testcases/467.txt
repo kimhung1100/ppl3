@@ -1,0 +1,6 @@
+
+        main: function integer () {
+            
+        }
+        a: auto = main();
+        

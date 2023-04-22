@@ -76,11 +76,19 @@ class GetEnv(Visitor):
 # _________________________________________________________
 def infer(name, typ, param):
     env = param[0]
+    prototype = param[1]
     for symbolList in env:
         for sym in symbolList:
             if sym.name == name:
                 sym.returnType = typ
-                return typ 
+                return typ
+    # case id is not in env, change in prototype, and add to env
+    symAddEnv = None # funcCall, add to env, and it param
+    for sym in prototype:
+        if sym.name == name:
+            sym.returnType = typ
+            ret = typ
+    
 # _________________________________________________________
 # infer typ for param_name in func_name
 # global_env can be env or prototype
@@ -130,9 +138,8 @@ class StaticChecker(Visitor):
             self.visit(decl, [True,env,globalScopePrototype])
         
         # raise NoEntryPoint() in the end of 2nd check
-            
-        for func in env[0]:
-            if func.name == "main" and func.returnType == VoidType and func.isFunction == True:
+        for func in env[-1]:
+            if func.name == "main" and type(func.returnType) == VoidType and func.isFunction == True:
                 return
         raise NoEntryPoint()
     
@@ -728,11 +735,11 @@ class StaticChecker(Visitor):
             elif type(leftType) is AutoType and type(rightType) is AutoType:
                 return FloatType() # testcase khong co 2 cai auto ko suy dien dc, tra ve float tang ti le dung
             elif type(leftType) is AutoType:
-                infer(ast.left, type(rightType), param)
-                return rightType()
+                infer(ast.left.name, type(rightType), param)
+                return rightType
             elif type(rightType) is AutoType:
-                infer(ast.right, type(leftType), param)
-                return leftType()
+                infer(ast.right.name, type(leftType), param)
+                return leftType
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return IntegerType()
             elif type(leftType) is FloatType and type(rightType) is FloatType or type(leftType) is IntegerType and type(rightType) is FloatType or type(leftType) is FloatType and type(rightType) is IntegerType:
@@ -744,14 +751,14 @@ class StaticChecker(Visitor):
             if intersection([type(leftType), type(rightType)], [BooleanType(), StringType(), VoidType(), FloatType()]):
                 raise TypeMismatchInExpression(ast)
             elif type(leftType) is AutoType and type(rightType) is AutoType:
-                infer(ast.left, IntegerType, param)
-                infer(ast.right, IntegerType, param)
+                infer(ast.left.name, IntegerType, param)
+                infer(ast.right.name, IntegerType, param)
                 return IntegerType()
             elif type(leftType) is AutoType:
-                infer(ast.left, type(rightType), param)
+                infer(ast.left.name, type(rightType), param)
                 return IntegerType()
             elif type(rightType) is AutoType:
-                infer(ast.right, type(leftType), param)
+                infer(ast.right.name, type(leftType), param)
                 return IntegerType()
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return IntegerType()
@@ -762,14 +769,14 @@ class StaticChecker(Visitor):
             if intersection([type(leftType), type(rightType)], [IntegerType(), StringType(), VoidType(), FloatType()]):
                 raise TypeMismatchInExpression(ast)
             if type(leftType) is AutoType and type(rightType) is AutoType:
-                infer(ast.left, BooleanType, param)
-                infer(ast.right, BooleanType, param)
+                infer(ast.left.name, BooleanType, param)
+                infer(ast.right.name, BooleanType, param)
                 return BooleanType()
             elif type(leftType) is AutoType:
-                infer(ast.left, type(rightType), param)
+                infer(ast.left.name, type(rightType), param)
                 return BooleanType()
             elif type(rightType) is AutoType:
-                infer(ast.right, type(leftType), param)
+                infer(ast.right.name, type(leftType), param)
                 return BooleanType()
             elif type(leftType) is BooleanType and type(rightType) is BooleanType:
                 return BooleanType()
@@ -779,12 +786,14 @@ class StaticChecker(Visitor):
             if intersection([type(leftType), type(rightType)], [BooleanType(), StringType(), VoidType()]):
                 raise TypeMismatchInExpression(ast)
             elif type(leftType) is AutoType and type(rightType) is AutoType:
+                infer(ast.left.name, BooleanType, param)
+                infer(ast.right.name, BooleanType, param)
                 return BooleanType() # ti le dung cao hon
             elif type(leftType) is AutoType:
-                infer(ast.left, type(rightType), param)
+                infer(ast.left.name, type(rightType), param)
                 return BooleanType()
             elif type(rightType) is AutoType:
-                infer(ast.right, type(leftType), param)
+                infer(ast.right.name, type(leftType), param)
                 return BooleanType()
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return BooleanType()
@@ -794,18 +803,18 @@ class StaticChecker(Visitor):
                 raise TypeMismatchInExpression(ast)
             
             
-        elif op in ['::']: # operand type is string
+        elif op in ['::']: # operand type is string, returntype is tring
             if intersection([type(leftType), type(rightType)], [BooleanType(), IntegerType(), VoidType(), FloatType()]):
                 raise TypeMismatchInExpression(ast)
             elif type(leftType) is AutoType and type(rightType) is AutoType:
-                infer(ast.left, StringType, param)
-                infer(ast.right, StringType, param)
+                infer(ast.left.name, StringType, param)
+                infer(ast.right.name, StringType, param)
                 return StringType()
             elif type(leftType) is AutoType:
-                infer(ast.left, type(rightType), param)
+                infer(ast.left.name, type(rightType), param)
                 return StringType()
             elif type(rightType) is AutoType:
-                infer(ast.right, type(leftType), param)
+                infer(ast.right.name, type(leftType), param)
                 return StringType()
             elif type(leftType) is StringType and type(rightType) is StringType:
                 return StringType()
@@ -876,14 +885,16 @@ class StaticChecker(Visitor):
         # check cell
         if arr not in [IntegerType(), FloatType(), BooleanType(), StringType(), VoidType(), AutoType()]:
             # check length
-            if len(ast.cell) > len(arr.dimensions):
-                raise TypeMismatchInExpression(ast.cell[len(arr.dimensions)]) # exp du thua dau tien
+            if len(ast.cell) > len(arr.dimensions):                
+                # raise TypeMismatchInExpression(ast.cell[len(arr.dimensions)]) # exp du thua dau tien
+                raise TypeMismatchInExpression(ast)
             elif len(ast.cell) < len(arr.dimensions):
                 raise TypeMismatchInExpression(ast) # voi dau vao rong, tuong tu giai thich super
             # check type
+            
             for i in range(len(ast.cell)):
                 typCell = self.visit(ast.cell[i], param)
-                if typCell is not IntegerType:
+                if type(typCell) is not IntegerType:
                     raise TypeMismatchInExpression(ast.cell[i])
             return arr.typ
         else: # id khong phai la array

@@ -1,0 +1,10 @@
+
+        main: function void() {
+            i: integer;
+            i = i + foo();
+            a: integer = foo();
+        }
+        foo: function auto() {
+            }
+        
+        

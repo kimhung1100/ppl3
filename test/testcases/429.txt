@@ -1,0 +1,11 @@
+
+        main: function void() {
+            i: integer;
+            while (i == 10) {
+                break;
+                break;
+                }
+            i = 1&&1;
+        }
+        
+        

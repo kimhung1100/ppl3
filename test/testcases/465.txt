@@ -1,0 +1,8 @@
+
+        main: function integer () {
+            b: float;
+            a: integer;
+            a = a%b;
+        }
+        a: auto = main();
+        

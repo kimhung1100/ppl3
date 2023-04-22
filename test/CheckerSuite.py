@@ -343,7 +343,7 @@ class CheckerSuite(unittest.TestCase):
         }
         
         """
-        expect = "Type mismatch in expression: IntegerLit(3)"
+        expect = "Type mismatch in expression: ArrayCell(x, [IntegerLit(2), IntegerLit(3)])"
         self.assertTrue(TestChecker.test(input, expect, 422))
     
     def test_423(self):
@@ -391,8 +391,220 @@ class CheckerSuite(unittest.TestCase):
         """
         expect = "Type mismatch in expression: ArrayCell(i, [IntegerLit(2)])"
         self.assertTrue(TestChecker.test(input, expect, 425))
+        
+    def test_426(self):
+        """id array cell is not a arraytype"""
+        input = """
+        main: function void() {
+            i: integer;
+            while (i < 10) {
+                break;
+                }
+                break;
+        }
+        
+        """
+        expect = "Must in loop: BreakStmt()"
+        self.assertTrue(TestChecker.test(input, expect, 426))
+        
+    def test_427(self):
+        """id array cell is not a arraytype"""
+        input = """
+        main: function void() {
+            i: integer;
+            while (i < 10) {
+                break;
+                break;
+                }
+            i = 1&&1;
+        }
+        
+        """
+        expect = "Type mismatch in expression: BinExpr(&&, IntegerLit(1), IntegerLit(1))"
+        self.assertTrue(TestChecker.test(input, expect, 427))
+        
+    def test_428(self):
+        """id array cell is not a arraytype"""
+        input = """
+        main: function void() {
+            i: integer;
+            while (i < 10) {
+                break;
+                break;
+                }
+            i = 1&&1;
+        }
+        
+        """
+        expect = "Type mismatch in expression: BinExpr(&&, IntegerLit(1), IntegerLit(1))"
+        self.assertTrue(TestChecker.test(input, expect, 428))
+        
+    def test_429(self):
+        """id array cell is not a arraytype"""
+        input = """
+        main: function void() {
+            i: integer;
+            while (i == 10) {
+                break;
+                break;
+                }
+            i = 1&&1;
+        }
+        
+        """
+        expect = "Type mismatch in expression: BinExpr(&&, IntegerLit(1), IntegerLit(1))"
+        self.assertTrue(TestChecker.test(input, expect, 429))
+        
+    def test_430(self):
+        input = """
+        main: function void() {
+            i: integer;
+            i = i + foo();
+            a: integer = foo();
+            i = z;
+        }
+        foo: function auto() {
+            }
+        
+        """
+        expect = "Undeclared Identifier: z"
+        self.assertTrue(TestChecker.test(input, expect, 430))
+        
+    def test_431(self):
+        input = """
+        main: function void() {
+            i: integer;
+            i = i + foo();
+            a: integer = foo();
+        }
+        foo: function auto() {
+            }
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(a, IntegerType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 431))
+        
+    def test_463(self):
+        input = """
+        x: array[2] of integer = {1,2};
+        main: function integer () {
+            a: integer;
+            a = x/a;
+        }
+        a: auto = main();
+        """
+        expect = "Type mismatch in expression: BinExpr(/, Id(x), Id(a))"
+        self.assertTrue(TestChecker.test(input, expect, 463))
+    def test_464(self):
+        input = """
+        x: array[2] of integer = {1,2};
+        main: function integer () {
+            b: float;
+            a: integer;
+            a = x%b;
+        }
+        a: auto = main();
+        """
+        expect = "Type mismatch in expression: BinExpr(%, Id(x), Id(b))"
+        self.assertTrue(TestChecker.test(input, expect, 464))
+        
+    def test_465(self):
+        input = """
+        main: function integer () {
+            b: float;
+            a: integer;
+            a = a%b;
+        }
+        a: auto = main();
+        """
+        expect = "Type mismatch in expression: BinExpr(%, Id(a), Id(b))"
+        self.assertTrue(TestChecker.test(input, expect, 465))
+    def test_466(self):
+        input = """
+        
+        main: function integer () {
+            b: string;
+            b = 1 :: "2asc";
+        }
+        a: auto = main();
+        """
+        expect = "Type mismatch in expression: BinExpr(::, IntegerLit(1), StringLit(2asc))"
+        self.assertTrue(TestChecker.test(input, expect, 466))
+        
+    def test_467(self):
+        input = """
+        main: function integer () {
+            
+        }
+        a: auto = main();
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 467))
+        
+    def test_468(self):
+        input = """
+        main: function void() {
+            a: array [1,2] of integer = {{1,2,"3"}};
 
-    def test_474(self):
+        }
+        """
+        expect = "Illegal array literal: ArrayLit([IntegerLit(1), IntegerLit(2), StringLit(3)])"
+        self.assertTrue(TestChecker.test(input, expect, 468))
+    def test_469(self):
+        input = """
+        main: function void() {
+            
+        }
+        a: array [1,2] of integer = {{1,2}};
+        b: array [1] of integer = a[1,2,3];
+        """
+        expect = "Type mismatch in expression: ArrayCell(a, [IntegerLit(1), IntegerLit(2), IntegerLit(3)])"
+        self.assertTrue(TestChecker.test(input, expect, 469))
+        
+    def test_470(self):
+        input = """
+        main: function auto() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                break;
+            }
+        }
+        a: array [1,2] of integer = {{1,2}};
+        b: array [1] of integer = {main()};
+        """
+        expect = "No entry point"
+        self.assertTrue(TestChecker.test(input, expect, 470))
+        
+    def test_471(self):
+        input = """
+        main: function void() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                break;
+            }
+        }
+        a: array [1,1] of integer = {{1}};
+        b: array [1] of integer = a[0] + 1;
+        """
+        expect = "Type mismatch in expression: ArrayCell(a, [IntegerLit(0)])"
+        self.assertTrue(TestChecker.test(input, expect, 471))
+        
+    def test_472(self):
+        input = """
+        main: function void() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                break;
+            }
+        }
+        a: array [1,1] of integer = {{1}};
+        b: integer = a[0,0] + 2;
+        main: integer = 1;
+        """
+        expect = "Redeclared Variable: main"
+        self.assertTrue(TestChecker.test(input, expect, 472))
+        
+    def test_473(self):
         input = """
         main: function void() {
             i: integer;
@@ -401,9 +613,22 @@ class CheckerSuite(unittest.TestCase):
                 break;
             }
         }
-        a: array [1,2] of integer = {{1,2}};
+        a: array [1,1] of integer = {{1}};
+        b: array [1] of integer = { a[0, 0] + 3.5 };
+        main: integer = 1;
         """
-        expect = "No entry point"
+        expect = "Redeclared Variable: main"
+        self.assertTrue(TestChecker.test(input, expect, 473))
+    
+    def test_474(self):
+        input = """
+        main: function void() {
+            
+        }
+        a: array [1,2] of integer = {{1,2}};
+        main: integer = 1;
+        """
+        expect = "Redeclared Variable: main"
         self.assertTrue(TestChecker.test(input, expect, 474))
         
     def test_475(self):

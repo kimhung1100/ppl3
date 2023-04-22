@@ -1,0 +1,11 @@
+
+        main: function void() {
+            i: integer;
+            for (i = 1, i<10, i+3){
+                break;
+            }
+        }
+        a: array [1,1] of integer = {{1}};
+        b: integer = a[0,0] + 2;
+        main: integer = 1;
+        
