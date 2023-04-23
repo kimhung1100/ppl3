@@ -1,0 +1,12 @@
+
+        main: function void() {
+            
+        }
+        foo: function integer (inherit x: float, inherit y: integer){}
+        foo1: function auto(){
+            super(1);
+            return a;
+        }
+        c: array [1,1] of integer = foo1();
+        
+        

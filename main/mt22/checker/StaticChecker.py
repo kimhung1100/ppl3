@@ -122,14 +122,14 @@ class StaticChecker(Visitor):
         # special functions
         env = [[]]
         # special functions
-        env[0] = [Symbol("readInteger", IntegerType(), True),
-            Symbol("printInteger", VoidType(), True, [ParamType("anArg", IntegerType())]),
-            Symbol("readFloat", FloatType(), True),
-            Symbol("writeFloat", VoidType(), True, [ParamType("anArg", FloatType())]),
-            Symbol("readBoolean", BooleanType(), True),
-            Symbol("printBoolean", VoidType(), True, [ParamType("anArg", BooleanType())]),
-            Symbol("readString", True, None, StringType()),
-            Symbol("printString", VoidType(), True, [ParamType("anArg", StringType())])
+        env[0] = [Symbol("readInteger", IntegerType(), 1),
+            Symbol("printInteger", VoidType(), 1, [ParamType("anArg", IntegerType())]),
+            Symbol("readFloat", FloatType(), 1),
+            Symbol("writeFloat", VoidType(), 1, [ParamType("anArg", FloatType())]),
+            Symbol("readBoolean", BooleanType(), 1),
+            Symbol("printBoolean", VoidType(), 1, [ParamType("anArg", BooleanType())]),
+            Symbol("readString", 1, None, StringType()),
+            Symbol("printString", VoidType(), 1, [ParamType("anArg", StringType())])
         ]
         
         # first check, get all function and variable of global scope
@@ -218,7 +218,7 @@ class StaticChecker(Visitor):
         # check redeclare function
         for sym in env[0]:
             if sym.name == ast.name:
-                if(sym.flag != 1):
+                if(sym.flag == 1):
                     raise Redeclared(Function(), ast.name) # function is already declared
         symInfered = None
         for sym in globalScopePrototype:
@@ -322,7 +322,9 @@ class StaticChecker(Visitor):
                 raise Undeclared(Function(), parentFuncName)
             
             # case call super or preventdefault
+            
             if len(ast.body) > 0 and type(ast.body[0]) is CallStmt:
+                
                 # name: str, args: List[Expr]
                 # expr la CallStmt 
                 expr = ast.body[0]
@@ -382,10 +384,11 @@ class StaticChecker(Visitor):
             
                         
         else: # non inherit case, special func for inherit cannot be called
+            
             if len(ast.body) > 0:
                 stmt = ast.body[0]
                 if type(stmt) is CallStmt and (stmt.name == "preventDefault" or stmt.name == "super"):
-                    raise TypeMismatchInStatement(ast.body[0])
+                    raise InvalidStatementInFunction(current_func.name)
             pass
         
         # --------------------------------------------------------
@@ -616,6 +619,8 @@ class StaticChecker(Visitor):
         env = param[1]
         prototype = param[2]
         if ast.name == "super" or ast.name == "preventDefault":
+            if (ast.name == "preventDefault" and len(ast.args) != 0):
+                raise TypeMismatchInExpression(ast.args[0])
             return
         # check function name in local
         for localEnv in env[:-1]:
@@ -641,7 +646,7 @@ class StaticChecker(Visitor):
             raise Undeclared(Function(), ast.name)
             
 
-        if funcSym.flag == 0:
+        if funcSym.flag == 0: # is a var
             raise TypeMismatchInStatement(ast) 
         if len(ast.args) > len(funcSym.param):
             raise TypeMismatchInStatement(ast)
@@ -659,7 +664,7 @@ class StaticChecker(Visitor):
                 
                 raise TypeMismatchInStatement(ast)
         if (beFound == 2): # call func chua duoc declare, declare 
-            funcSym.flag = 1
+            funcSym.flag = 2 # declare from prototype
             env[-1].append(funcSym)
         return # stmt chi check loi, khong tra ve kieu
         
@@ -701,9 +706,10 @@ class StaticChecker(Visitor):
             raise Undeclared(Function(), ast.name)
             
 
-        if funcSym.flag == 0:
+        if funcSym.flag == 0: # is a var
             raise TypeMismatchInExpression(ast)
-        
+        if (type(funcSym.returnType) == VoidType):
+            raise TypeMismatchInExpression(ast)
         if len(ast.args) > len(funcSym.param):
             raise TypeMismatchInExpression(ast.args[len(funcSym.param)])
         elif len(ast.args) < len(funcSym.param):
@@ -720,7 +726,7 @@ class StaticChecker(Visitor):
                 
                 raise TypeMismatchInExpression(ast)
         if (beFound == 2): # call func chua duoc declare, declare 
-            funcSym.flag = 1
+            funcSym.flag = 2 # declare from prototype
             env[-1].append(funcSym)
         return symbol.returnType # expr tra ve kieu
         
@@ -801,10 +807,10 @@ class StaticChecker(Visitor):
                 infer(ast.right.name, BooleanType, param)
                 return BooleanType() # ti le dung cao hon
             elif type(leftType) is AutoType:
-                infer(ast.left.name, type(rightType), param)
+                infer(ast.left.name, rightType, param)
                 return BooleanType()
             elif type(rightType) is AutoType:
-                infer(ast.right.name, type(leftType), param)
+                infer(ast.right.name, leftType, param)
                 return BooleanType()
             elif type(leftType) is IntegerType and type(rightType) is IntegerType:
                 return BooleanType()
@@ -822,10 +828,10 @@ class StaticChecker(Visitor):
                 infer(ast.right.name, StringType, param)
                 return StringType()
             elif type(leftType) is AutoType:
-                infer(ast.left.name, type(rightType), param)
+                infer(ast.left.name, rightType, param)
                 return StringType()
             elif type(rightType) is AutoType:
-                infer(ast.right.name, type(leftType), param)
+                infer(ast.right.name, leftType, param)
                 return StringType()
             elif type(leftType) is StringType and type(rightType) is StringType:
                 return StringType()

@@ -1,0 +1,15 @@
+
+        foo: function auto() {
+            }
+        main: function void() {
+            a: float;
+            if (true) {
+                a = foo() * 2.5;
+            }
+            b: float = a * 2.5;
+        }
+        
+        varToError: string = foo();
+        
+        
+        

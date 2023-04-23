@@ -1,0 +1,12 @@
+
+        main: function void() {
+            while( true && foo() ){
+                a: boolean = foo() || true;
+            }
+        }
+        foo: function auto() {
+            }
+        varToError: string = foo();
+        
+        
+        

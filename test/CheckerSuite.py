@@ -505,6 +505,159 @@ class CheckerSuite(unittest.TestCase):
         expect = "Type mismatch in Variable Declaration: VarDecl(z, StringType, FuncCall(foo, []))"
         self.assertTrue(TestChecker.test(input, expect, 432))
         
+    def test_433(self):
+        input = """
+        main: function void() {
+            while( true && foo() ){
+                a: boolean = foo() || true;
+            }
+        }
+        foo: function auto() {
+            }
+        varToError: string = foo();
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(varToError, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 433))
+    
+    def test_434(self):
+        input = """
+        foo: function auto() {
+            }
+        main: function void() {
+            while( true && foo() ){
+                a: boolean = foo() || true;
+            }
+        }
+        
+        varToError: string = foo();
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(varToError, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 434))
+        
+    def test_435(self):
+        input = """
+        foo: function auto() {
+            }
+        main: function void() {
+            while( true && foo() ){
+                a: boolean = foo() || true;
+            }
+        }
+        
+        varToError: string = foo();
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(varToError, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 435))
+        
+        
+    def test_436(self):
+        input = """
+        foo: function auto() {
+            }
+        main: function void() {
+            while( true && foo() ){
+                a: boolean = foo() || true;
+            }
+        }
+        
+        varToError: string = foo();
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(varToError, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 436))
+        
+    def test_437(self):
+        input = """
+        foo: function auto() {
+            }
+        main: function void() {
+            a: float;
+            if (true) {
+                a = foo() * 2.5;
+            }
+            b: float = a * 2.5;
+        }
+        
+        varToError: string = foo();
+        
+        
+        """
+        expect = "Type mismatch in Variable Declaration: VarDecl(varToError, StringType, FuncCall(foo, []))"
+        self.assertTrue(TestChecker.test(input, expect, 437))
+        
+    def test_438(self):
+        input = """
+        main: function void() {
+            i: integer;
+            
+        }
+        printInteger: function integer(){
+
+        }
+        """
+        expect = "Redeclared Function: printInteger"
+        self.assertTrue(TestChecker.test(input, expect, 438))
+        
+    def test_439(self):
+        input = """
+        main: function void() {
+            i: integer;
+            
+        }
+        foo : function integer(){
+            }
+        foo: function integer(){
+            }
+        """
+        expect = "Redeclared Function: foo"
+        self.assertTrue(TestChecker.test(input, expect, 439))
+    
+    def test_440(self):
+        input = """
+        inc : function void (out m : integer, k: float) inherit foo{
+        preventDefault(1,2);
+        n: string = 124;    
+        } 
+        foo : function auto (inherit n: float, b: integer){}
+        """
+        expect = "Type mismatch in expression: IntegerLit(1)"
+        self.assertTrue(TestChecker.test(input, expect, 440))
+    
+    def test_441(self):
+        input = """
+        inc : function void (out n : integer, n: float) inherit foo{
+        super(0.1, 1);
+        n: string = 124;    
+        } 
+        foo : function auto (inherit n: float, b: integer){}
+        """
+        expect = "Redeclared Parameter: n"
+        self.assertTrue(TestChecker.test(input, expect, 441))
+        
+    def test_442(self):
+        input = """
+        main: function void() {
+            
+        }
+        foo: function integer (inherit x: float, inherit y: integer){}
+        foo1: function auto(){
+            super(1);
+            return a;
+        }
+        c: array [1,1] of integer = foo1();
+        
+        """
+        expect = "Invalid statement in function: foo1"
+        self.assertTrue(TestChecker.test(input, expect, 442))
+        
+        
     def test_463(self):
         input = """
         x: array[2] of integer = {1,2};
@@ -772,7 +925,7 @@ class CheckerSuite(unittest.TestCase):
         
         
         """
-        expect = "Type mismatch in statement: CallStmt(writeFloat, FuncCall(main, []))"
+        expect = "Type mismatch in expression: FuncCall(main, [])"
         self.assertTrue(TestChecker.test(input, expect, 485))
         
     def test_486(self):
