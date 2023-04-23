@@ -1,0 +1,9 @@
+
+        main: function void() {
+            a: array[2,2] of integer;
+            b: array[2] of integer = a[0]; // access array 
+        }
+        main2: function integer(x: float, y: float) inherit main3{
+            a: integer = x;
+        }
+        

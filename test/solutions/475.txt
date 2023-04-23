@@ -1,1 +1,1 @@
-Type mismatch in expression: FuncCall(foo, [IntegerLit(10)])
+No entry point

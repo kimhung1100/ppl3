@@ -1,0 +1,6 @@
+
+        main: function void() {
+            a: array[2,3] of integer;
+            printInteger(a[1]);
+        }
+        

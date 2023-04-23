@@ -1,0 +1,7 @@
+
+        inc : function void (out m : integer, k: float) inherit foo{
+        preventDefault(1,2);
+        n: string = 124;    
+        } 
+        foo : function auto (inherit n: float, b: integer){}
+        

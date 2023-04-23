@@ -1,0 +1,9 @@
+
+        foo1: function auto(){
+            return 1.2;
+        }
+        foo : function float (inherit n: float, b: integer, c:auto){
+            d: integer = 1;
+            printFloat(c);
+        }
+        

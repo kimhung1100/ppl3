@@ -125,7 +125,7 @@ class StaticChecker(Visitor):
         env[0] = [Symbol("readInteger", IntegerType(), 1),
             Symbol("printInteger", VoidType(), 1, [ParamType("anArg", IntegerType())]),
             Symbol("readFloat", FloatType(), 1),
-            Symbol("writeFloat", VoidType(), 1, [ParamType("anArg", FloatType())]),
+            Symbol("printFloat", VoidType(), 1, [ParamType("anArg", FloatType())]),
             Symbol("readBoolean", BooleanType(), 1),
             Symbol("printBoolean", VoidType(), 1, [ParamType("anArg", BooleanType())]),
             Symbol("readString", 1, None, StringType()),
@@ -175,26 +175,49 @@ class StaticChecker(Visitor):
                 raise Redeclared(Variable(), ast.name)
         if param[0] == True: # in global scope, env = [globalEnv]
             env[0].append(Symbol(ast.name, ast.typ))
-        # kiem tra tinh hop le cua ve trai
-        if ast.init is None:
             
+        # kiem tra tinh hop le cua ve trai
+        
+        if ast.init is None:
             if type(ast.typ) is AutoType: # declare auto type var but no init
                 raise Invalid(Variable(),ast.name)
             return Symbol(ast.name, ast.typ)
         
         elif ast.init is not None:
+            
             # if ast.typ is ArrayType:
             exprType = self.visit(ast.init, [env, globalEnvPrototype])
+            
+            if type(exprType) is AutoType:
+                infer(ast.init.name, ast.typ, [env, globalEnvPrototype])
+                exprType = self.visit(ast.init, [env, globalEnvPrototype])
             if type(ast.typ) is AutoType:
                 return Symbol(ast.name, exprType)
             elif type(ast.typ) is IntegerType and type(exprType) is FloatType:
                 raise TypeMismatchInVarDecl(ast)
             elif type(ast.typ) is FloatType and type(exprType) is IntegerType:
                 return Symbol(ast.name, ast.typ)
-            elif type(ast.typ) is not type(exprType): # khong dung type de so sanh truc tiep dimension and type of array
+            elif type(ast.typ) is type(exprType) and type(ast.typ) in [IntegerType, FloatType, BooleanType, StringType]:
+                return Symbol(ast.name, ast.typ)
+            elif type(ast.typ) is not type(exprType) and type(ast.typ) in [IntegerType, FloatType, BooleanType, StringType] and type(exprType) in [IntegerType, FloatType, BooleanType, StringType]: # khong dung type de so sanh truc tiep dimension and type of array
+                raise TypeMismatchInVarDecl(ast)
+            elif type(ast.typ) is not type(exprType) and type(ast.typ) not in [IntegerType, FloatType, BooleanType, StringType] and type(exprType) in [IntegerType, FloatType, BooleanType, StringType]: # khong dung type de so sanh truc tiep dimension and type of array
+                raise TypeMismatchInVarDecl(ast)
+            elif type(ast.typ) is not type(exprType) and type(ast.typ) in [IntegerType, FloatType, BooleanType, StringType] and type(exprType) not in [IntegerType, FloatType, BooleanType, StringType]: # khong dung type de so sanh truc tiep dimension and type of array
                 raise TypeMismatchInVarDecl(ast)
             else:
-                if ast.typ != exprType: # check array type
+                # ca 2 deu la array
+                # flatten array
+                dimen = 1
+                for i in ast.typ.dimensions:
+                    dimen *= i
+                    
+                exprDimen = 1
+                for i in exprType.dimensions:
+                    exprDimen *= i
+                
+                if ast.typ.typ != exprType.typ or dimen != exprDimen: 
+                    
                     raise TypeMismatchInVarDecl(ast)
                 return Symbol(ast.name, ast.typ)
             
@@ -202,7 +225,7 @@ class StaticChecker(Visitor):
         
     # _____________________________________________________________
     # name: str, return_type: Type, params: List[ParamDecl], inherit: str or None, body: BlockStmt
-    # # func/var param # [0] program_call: bool, flag for distinguish visit vardecl from program or 
+    # # func/var param #  [0] program_call: bool, flag for distinguish visit vardecl from program or 
 			            # [1] env,
 			            # [2] globalScopePrototype
     # _____________________________________________________________
@@ -337,7 +360,7 @@ class StaticChecker(Visitor):
                     if len(expr.args) > len(parent_params):
                         raise TypeMismatchInExpression(expr.args[len(parent_params)]) # raise args du thua dau tien
                     elif len(expr.args) < len(parent_params):
-                        raise TypeMismatchInExpression()
+                        raise TypeMismatchInExpression(None)
                     
                     # check type of each param of super function and the parent function
                     for i in range(len(expr.args)):
@@ -601,7 +624,7 @@ class StaticChecker(Visitor):
         for sym in env[-1]:
             if sym.name == currentFunc.name:
                 currentFunc = sym
-        if currentFunc.returnType is AutoType():
+        if type(currentFunc.returnType) is AutoType:
             for sym in env[-1]:
                 if sym.name == currentFunc.name:
                     sym.returnType = return_type
@@ -658,7 +681,7 @@ class StaticChecker(Visitor):
                 inferParam(funcSym.name,funcSym.param[i].name, arg, env[-1] if beFound == 1 else prototype)
             elif type(arg) is IntegerType and type(funcSym.param[i].returnType) is FloatType:
                 # convert the param to float
-                raise TypeMismatchInStatement(ast)
+                # raise TypeMismatchInStatement(ast) # cho phep chuyen kieu
                 pass
             elif type(arg) is not type(funcSym.param[i].returnType):
                 
@@ -670,11 +693,10 @@ class StaticChecker(Visitor):
         
     # ************************************************************
     #  GROUP VISIT EXPRESSION
-    # Param: env
+    # Param: env, prototype
     # _________________________________________________________
     # FuncCall(Expr)
     # name: str, args: List[Expr]
-    # param env, prototype
     # _________________________________________________________
     def visitFuncCall(self, ast, param):
         env = param[0]
@@ -720,7 +742,7 @@ class StaticChecker(Visitor):
                 inferParam(funcSym.name,funcSym.param[i].name, arg, env[-1] if beFound == 1 else prototype)
             elif type(arg) is IntegerType and type(funcSym.param[i].returnType) is FloatType:
                 # convert the param to float
-                raise TypeMismatchInExpression(ast)
+                # raise TypeMismatchInExpression(ast) # cho phep convert
                 pass
             elif type(arg) is not type(funcSym.param[i].returnType):
                 
@@ -739,7 +761,6 @@ class StaticChecker(Visitor):
     #        Logical: &&, ||
     #        Relational: <, >, <=, >=, ==, !=
     #        String: ::
-    # param is env
     # _________________________________________________________
     def visitBinExpr(self, ast, param): 
         op = ast.op
@@ -840,7 +861,6 @@ class StaticChecker(Visitor):
     # _________________________________________________________
     # op: str, body: Expr
     # op is Unary: !, -
-    # param is env
     # _________________________________________________________
     def visitUnExpr(self, ast, param): 
         op = ast.op
@@ -885,7 +905,8 @@ class StaticChecker(Visitor):
     def visitVoidType(self, ast, param): return VoidType()
     
     # (self, dimensions: List[int], typ: AtomicType):
-    def visitArrayType(self, ast, param): return ArrayType(ast.dimensions, ast.typ) 
+    def visitArrayType(self, ast, param): 
+        return ArrayType(ast.dimensions, ast.typ) 
     
     # name: str, cell: List[Expr]
     def visitArrayCell(self, ast, param):
@@ -905,12 +926,18 @@ class StaticChecker(Visitor):
             if len(ast.cell) > len(arr.dimensions):                
                 # raise TypeMismatchInExpression(ast.cell[len(arr.dimensions)]) # exp du thua dau tien
                 raise TypeMismatchInExpression(ast)
-            elif len(ast.cell) < len(arr.dimensions):
-                raise TypeMismatchInExpression(ast) # voi dau vao rong, tuong tu giai thich super
+            elif len(ast.cell) < len(arr.dimensions): # cho phep truy xuat voi so chieu it hon, lay array con
+                if len(ast.cell) == 1 and len(arr.dimensions) == 2:
+                    return ArrayType([arr.dimensions[1]], arr.typ)
+                elif len(ast.cell) == 1 and len(arr.dimensions) == 3:
+                    return ArrayType([arr.dimensions[1], arr.dimensions[2]], arr.typ)
+                elif len(ast.cell) == 2 and len(arr.dimensions) == 3:
+                    return ArrayType([arr.dimensions[2]], arr.typ)
+                # raise TypeMismatchInExpression(ast) # voi dau vao rong, tuong tu giai thich super
             # check type
-            
             for i in range(len(ast.cell)):
                 typCell = self.visit(ast.cell[i], param)
+                
                 if type(typCell) is not IntegerType:
                     raise TypeMismatchInExpression(ast.cell[i])
             return arr.typ
@@ -923,15 +950,26 @@ class StaticChecker(Visitor):
         elements = []
         for ele in ast.explist:
             elements += [self.visit(ele, param)]
+            
+        
         typEle = self.visit(ast.explist[0], param)
+        
         for ele in elements:
             if type(ele) != type(typEle):
                 raise IllegalArrayLiteral(ast)
+        
+        if len(elements) >= 2:
+            for i in range (1, len(elements)):
+                if elements[i] != elements[i-1]:                    
+                    raise TypeMismatchInExpression(ast.explist[i])
+            
+            
         if type(typEle) == ArrayType: # flatten array
             dimen = 1
             for i in typEle.dimensions:
                 dimen *= i
-            return ArrayType([len(ast.explist),dimen], typEle.typ)
+            
+            return ArrayType([len(ast.explist), dimen], typEle.typ)
         return ArrayType([len(ast.explist)], typEle)
     
     def visitIntegerLit(self, ast, param): return IntegerType()

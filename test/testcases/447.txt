@@ -1,10 +1,10 @@
 
         main: function void() {
-            
+            a: array[2,3] of integer = foo(1,2);
         }
         foo: function auto (x: integer, y: float){
-            printFloat(main());
+            return { {x,x,x},{y,y,y} };
         }
-        
+        a: integer = "abort";
         
         

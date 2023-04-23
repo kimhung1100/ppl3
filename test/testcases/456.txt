@@ -1,0 +1,8 @@
+
+        main: function void() {
+            a: array[2,3] of integer = foo(1,2);
+        }
+        foo: function auto (x: integer, y: float){
+            return "function be infered to integer but now return string";
+        }
+        

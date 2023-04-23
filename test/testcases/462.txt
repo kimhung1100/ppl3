@@ -1,0 +1,12 @@
+
+        main: function void() {
+            a: integer = foo(1,2);
+        }
+        foo: function auto (x: integer, y: float){
+            b: float = 2.5 * bar(1/2,2.5);
+        }
+        bar: function auto (a: integer, z: float){
+            return "function be infered to integer but now return string";
+            
+        }
+        

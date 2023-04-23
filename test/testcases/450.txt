@@ -1,0 +1,6 @@
+
+        main: function void() {
+            a: string = 12 :: "str";
+        }
+        a: integer = "abort";
+        

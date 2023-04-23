@@ -1,1 +1,1 @@
-Type mismatch in statement: CallStmt(writeFloat, Id(i))
+No entry point

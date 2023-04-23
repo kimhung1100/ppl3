@@ -1,0 +1,1 @@
+Type mismatch in statement: ReturnStmt(StringLit(function be infered to integer but now return string))

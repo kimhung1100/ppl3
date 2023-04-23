@@ -1,0 +1,10 @@
+
+        foo: function auto (a: integer, b: integer) {
+            return {"1","2"};
+        }
+
+        foo1: function integer(){
+            a: array[1] of integer = foo(1,2);
+        }
+        
+        
